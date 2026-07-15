@@ -1177,7 +1177,12 @@ function renderEvaluatorDetail(){
   const ev = S.evaluator;
   const s = S.startups.find(x=>x.id===S.currentStartupId);
   const key = ev.id+'::'+s.id;
-  const existing = S.scores[key] || { subScores:{}, goNoGo:null, comments:'' };
+  const rawExisting = S.scores[key] || {};
+  const existing = {
+    subScores: rawExisting.subScores || {},
+    goNoGo: rawExisting.goNoGo || null,
+    comments: rawExisting.comments || ''
+  };
   const rubric = getRubric(s);
   const extraEntries = Object.entries(s.extra||{});
 
