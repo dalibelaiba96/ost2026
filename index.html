@@ -1316,7 +1316,7 @@ function renderEvaluatorDetail(){
       </div>
       <div class="panel-right">
         <div class="info-block">
-          <h4>Company Snapshot</h4>
+          <h4>Company Basics</h4>
           <div class="kv">
             <div>Sector</div><div>${esc(s.sector||'—')}</div>
             <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
@@ -1330,63 +1330,28 @@ function renderEvaluatorDetail(){
           </div>
         </div>
 
-        <div class="info-block">
-          <h4>Team &amp; Founders</h4>
-          ${s.founderList && s.founderList.length ? `
-            <div class="kv">
-              ${s.founderList.map(f=>`<div>${esc(f.name)}</div><div>${esc(f.role||'—')}</div>`).join('')}
-            </div>
-          ` : `<div class="memo-text">${esc(s.founders || '—')}</div>`}
-        </div>
-
-        ${(s.oneLiner || s.description || s.differentiators) ? `
-        <div class="info-block">
-          <h4>Pitch</h4>
-          ${s.oneLiner ? `<div class="memo-text" style="font-weight:600;margin-bottom:10px;">${esc(s.oneLiner)}</div>` : ''}
-          ${s.description && s.description !== s.oneLiner ? `<div class="memo-text" style="margin-bottom:10px;">${esc(s.description)}</div>` : ''}
-          ${s.differentiators ? `<div class="memo-text"><b>Differentiators:</b> ${esc(s.differentiators)}</div>` : ''}
-        </div>` : ''}
-
-        ${(s.milestone || s.revenueModel || s.revLastMonth || s.revLast12Months || s.clients || s.cashRunway) ? `
-        <div class="info-block">
-          <h4>Traction &amp; Metrics</h4>
-          <div class="kv">
-            ${s.milestone ? `<div>Milestone</div><div>${esc(s.milestone)}</div>` : ''}
-            ${s.revenueModel ? `<div>Revenue model</div><div>${esc(s.revenueModel)}</div>` : ''}
-            ${s.revLastMonth ? `<div>Revenue (last month)</div><div>${esc(s.revLastMonth)}</div>` : ''}
-            ${s.revLast12Months ? `<div>Revenue (last 12mo)</div><div>${esc(s.revLast12Months)}</div>` : ''}
-            ${s.clients ? `<div>Clients</div><div>${esc(s.clients)}</div>` : ''}
-            ${s.cashRunway ? `<div>Cash runway</div><div>${esc(s.cashRunway)}</div>` : ''}
+        ${rubric ? rubric.map(cat => `
+          <div class="info-block">
+            <h4>${esc(cat.label)}</h4>
+            ${categoryEvidenceHtml(cat.id, s)}
           </div>
-        </div>` : ''}
+        `).join('') : ''}
 
-        ${(s.totalFunding || s.roundAmount || s.roundValuation || s.roundStatus || s.roundType) ? `
         <div class="info-block">
-          <h4>Fundraising</h4>
+          <h4>Resources &amp; Links</h4>
+          <p class="su-meta" style="margin:0 0 10px;">Some rubric items (GTM plan, competitive detail, IP strategy) are often only in the full application, not the export, check these if the fields above look thin.</p>
           <div class="kv">
-            ${s.totalFunding ? `<div>Total funding to date</div><div>${esc(s.totalFunding)}</div>` : ''}
-            ${s.roundAmount ? `<div>Round amount</div><div>${esc(s.roundAmount)}${s.roundAmountCurrency?' '+esc(s.roundAmountCurrency):''}</div>` : ''}
-            ${s.roundValuation ? `<div>Round valuation</div><div>${esc(s.roundValuation)}${s.roundValuationCurrency?' '+esc(s.roundValuationCurrency):''}</div>` : ''}
-            ${s.roundStatus ? `<div>Round status</div><div>${esc(s.roundStatus)}</div>` : ''}
-            ${s.roundType ? `<div>Round type</div><div>${esc(s.roundType)}</div>` : ''}
-            ${s.roundUpdated ? `<div>Last updated</div><div>${esc(s.roundUpdated)}</div>` : ''}
-          </div>
-        </div>` : ''}
-
-        ${(s.links && (s.links.linkedin||s.links.github||s.links.twitter||s.links.facebook||s.links.website2) || s.decks || s.videos || s.files) ? `
-        <div class="info-block">
-          <h4>Links &amp; Resources</h4>
-          <div class="kv">
+            ${s.decks ? `<div>Pitch deck</div><div>${esc(s.decks)}</div>` : ''}
+            ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
+            ${s.files ? `<div>Files</div><div>${esc(s.files)}</div>` : ''}
             ${s.links && s.links.linkedin ? `<div>LinkedIn</div><div>${asLink(s.links.linkedin)}</div>` : ''}
             ${s.links && s.links.twitter ? `<div>Twitter/X</div><div>${asLink(s.links.twitter)}</div>` : ''}
             ${s.links && s.links.github ? `<div>GitHub</div><div>${asLink(s.links.github)}</div>` : ''}
             ${s.links && s.links.facebook ? `<div>Facebook</div><div>${asLink(s.links.facebook)}</div>` : ''}
             ${s.links && s.links.website2 ? `<div>AngelList</div><div>${asLink(s.links.website2)}</div>` : ''}
-            ${s.decks ? `<div>Decks</div><div>${esc(s.decks)}</div>` : ''}
-            ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
-            ${s.files ? `<div>Files</div><div>${esc(s.files)}</div>` : ''}
+            ${!(s.decks||s.videos||s.files||(s.links&&(s.links.linkedin||s.links.twitter||s.links.github||s.links.facebook||s.links.website2))) ? `<div style="grid-column:1/-1;color:var(--muted);font-style:italic;">Nothing beyond the main website was provided.</div>` : ''}
           </div>
-        </div>` : ''}
+        </div>
 
         ${extraEntries.length ? `<div class="info-block"><h4>Additional data (from CSV)</h4><div class="kv">
             ${extraEntries.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(String(v))}</div>`).join('')}
@@ -1471,6 +1436,79 @@ function asLink(value){
   let href = String(value).trim();
   if(!/^https?:\/\//i.test(href)) href = 'https://' + href.replace(/^\/\//,'');
   return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${esc(value)}</a>`;
+}
+
+// Builds the evidence shown under each rubric category in the evaluator's info panel,
+// so the data relevant to a category sits right next to where it's scored.
+function categoryEvidenceHtml(catId, s){
+  const has = (v) => v !== undefined && v !== null && String(v).trim() !== '';
+  const row = (label, val) => has(val) ? `<div>${esc(label)}</div><div>${esc(val)}</div>` : '';
+  const gapNote = (text) => `<p class="su-meta" style="margin:8px 0 0;font-style:italic;">${esc(text)}</p>`;
+
+  if(catId === 'team'){
+    const founderRows = (s.founderList||[]).length
+      ? `<div class="kv">${s.founderList.map(f=>`<div>${esc(f.name)}</div><div>${esc(f.role||'—')}</div>`).join('')}</div>`
+      : `<div class="memo-text">${esc(s.founders || 'No founder info provided.')}</div>`;
+    const teamSize = (s.founderList||[]).length;
+    return `
+      ${founderRows}
+      <div class="kv" style="margin-top:10px;">
+        ${row('Team size (from founders listed)', teamSize ? teamSize+' founder(s) listed' : '')}
+        ${row('University', s.university)}
+      </div>
+      ${gapNote('Full-time commitment, gender/age breakdown, and detailed credentials aren\u2019t separate fields in this export, check the deck or ask directly if not otherwise known.')}
+    `;
+  }
+
+  if(catId === 'traction'){
+    return `
+      <div class="kv">
+        ${row('Milestone', s.milestone)}
+        ${row('Incorporated', s.incorporated)}
+        ${row('Revenue model', s.revenueModel)}
+        ${row('Revenue (last month)', s.revLastMonth)}
+        ${row('Revenue (last 12mo)', s.revLast12Months)}
+        ${row('Clients', s.clients)}
+        ${row('Cash runway', s.cashRunway)}
+      </div>
+      ${!has(s.milestone) && !has(s.revLastMonth) && !has(s.clients) ? gapNote('No traction figures were provided in the export, this may need to be scored 0 or verified with the founders.') : gapNote('Technology readiness (TRL) and IP/patent status aren\u2019t separate fields, infer from Milestone/Differentiators or the deck.')}
+    `;
+  }
+
+  if(catId === 'solution'){
+    return `
+      ${has(s.oneLiner) ? `<div class="memo-text" style="font-weight:600;margin-bottom:10px;">${esc(s.oneLiner)}</div>` : ''}
+      ${has(s.description) && s.description !== s.oneLiner ? `<div class="memo-text" style="margin-bottom:10px;">${esc(s.description)}</div>` : ''}
+      ${has(s.differentiators) ? `<div class="memo-text"><b>Differentiators:</b> ${esc(s.differentiators)}</div>` : ''}
+      ${!has(s.oneLiner) && !has(s.description) && !has(s.differentiators) ? `<div class="memo-text" style="color:var(--muted);font-style:italic;">No pitch text provided.</div>` : gapNote('Competitive positioning and measurable social/environmental impact often aren\u2019t explicit here, look for it in the description above or the deck.')}
+    `;
+  }
+
+  if(catId === 'fundraising'){
+    return `
+      <div class="kv">
+        ${row('Total funding to date', s.totalFunding)}
+        ${row('Round amount', has(s.roundAmount) ? s.roundAmount + (has(s.roundAmountCurrency)?' '+s.roundAmountCurrency:'') : '')}
+        ${row('Round valuation', has(s.roundValuation) ? s.roundValuation + (has(s.roundValuationCurrency)?' '+s.roundValuationCurrency:'') : '')}
+        ${row('Round status', s.roundStatus)}
+        ${row('Round type', s.roundType)}
+        ${row('Last updated', s.roundUpdated)}
+      </div>
+      ${!has(s.totalFunding) && !has(s.roundAmount) ? gapNote('No fundraising figures provided, likely scores low on this category unless the deck/notes clarify an ask.') : gapNote('A specific funding ask (amount, use of funds, stage) isn\u2019t always a separate field, check the deck or notes for the exact ask.')}
+    `;
+  }
+
+  if(catId === 'market_fit'){
+    return `
+      <div class="kv">
+        ${row('Location', s.country)}
+        ${row('Markets / sector', s.sector)}
+      </div>
+      ${gapNote('Go-to-market plan and international expansion strategy are rarely separate export fields, this is usually the most deck-dependent category, open the pitch deck below before scoring it.')}
+    `;
+  }
+
+  return '';
 }
 
 /* ============ INIT ============ */
