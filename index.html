@@ -473,7 +473,7 @@ function rubricMaxTotal(rubric){
 // Best-effort auto-detect of Deeptech vs Tech-enabled from F6S text fields; admin can always override.
 const DEEPTECH_HINTS = ['deep tech','deeptech','deep-tech','biotech','medtech','life science','hardware','robotics','materials science','nanotech','semiconductor','space tech','cleantech hardware','synthetic biology','quantum','photonics'];
 function guessStartupType(row){
-  const haystack = [row.sector, row.oneLiner, row.extra && row.extra['Markets'], row.extra && row.extra['Tags'], row.extra && row.extra['Pipeline'], row.extra && row.extra['Description']]
+  const haystack = [row.sector, row.oneLiner, row.description, row.differentiators]
     .filter(Boolean).join(' ').toLowerCase();
   for(const hint of DEEPTECH_HINTS){
     if(haystack.includes(hint)) return 'deeptech';
@@ -525,10 +525,14 @@ const FIELD_MAP = {
   sector: ['industry','sector','category','vertical','markets'],
   stage: ['stage','investment stage','funding stage','f6s listed round stage','status'],
   country: ['country','location','hq','hq location'],
-  oneLiner: ['tagline','one liner','one-liner','pitch','short description','elevator pitch','description'],
+  oneLiner: ['tagline','one liner','one-liner','pitch','short description','elevator pitch'],
   founders: ['founders','founder names','founder(s)','team'],
   email: ['email','contact email','founder email']
 };
+
+// Admin/meta columns from F6S that aren't useful to show an evaluator; silently dropped rather than
+// dumped into "additional data" clutter.
+const NOISE_COLUMNS = ['startup id','your score','avg score','assigned evaluators','completed by','start app','finalize app','last contact','source 1 name','source 1 type','interfaces','rounds','# individuals','pipeline','tags','google plus'];
 
 function normalizeHeader(h){ return (h||'').toString().trim().toLowerCase(); }
 
@@ -564,8 +568,17 @@ function arrayGridToObjects(grid){
 function mapCsvRow(row){
   const lowerRow = {};
   Object.keys(row).forEach(k => lowerRow[normalizeHeader(k)] = row[k]);
-  const out = { extra: {} };
+  const out = { extra: {}, founderList: [], links: {} };
   const usedKeys = new Set();
+
+  const pick = (key)=>{
+    if(lowerRow[key] !== undefined && lowerRow[key] !== ''){
+      usedKeys.add(key);
+      return String(lowerRow[key]).trim();
+    }
+    return '';
+  };
+
   for(const field in FIELD_MAP){
     let found = null;
     for(const candidate of FIELD_MAP[field]){
@@ -577,21 +590,60 @@ function mapCsvRow(row){
     }
     out[field] = found ? String(found).trim() : '';
   }
+
   // F6S splits founders into separate "Founder N Name" / "Founder N Role" columns; combine them
-  if(!out.founders){
-    const founderParts = [];
-    for(let n=1; n<=5; n++){
-      const nameKey = 'founder '+n+' name';
-      const roleKey = 'founder '+n+' role';
-      if(lowerRow[nameKey]){
-        usedKeys.add(nameKey);
-        if(lowerRow[roleKey]){ usedKeys.add(roleKey); founderParts.push(lowerRow[nameKey]+' ('+lowerRow[roleKey]+')'); }
-        else { founderParts.push(String(lowerRow[nameKey])); }
-      }
+  // both into a display string (out.founders) and a structured list (out.founderList).
+  for(let n=1; n<=5; n++){
+    const nameKey = 'founder '+n+' name';
+    const roleKey = 'founder '+n+' role';
+    if(lowerRow[nameKey]){
+      usedKeys.add(nameKey);
+      const role = lowerRow[roleKey] ? String(lowerRow[roleKey]).trim() : '';
+      if(lowerRow[roleKey]) usedKeys.add(roleKey);
+      out.founderList.push({ name: String(lowerRow[nameKey]).trim(), role });
     }
-    if(founderParts.length) out.founders = founderParts.join(', ');
   }
-  // keep leftover columns as extra info
+  if(!out.founders && out.founderList.length){
+    out.founders = out.founderList.map(f => f.role ? f.name+' ('+f.role+')' : f.name).join(', ');
+  }
+
+  // Structured application sections (Company snapshot, Pitch, Traction, Fundraising, Links)
+  out.founded = pick('founded');
+  out.incorporated = pick('incorporated');
+  out.university = pick('university');
+  out.differentiators = pick('differentiators');
+  out.description = pick('description');
+  out.milestone = pick('milestone');
+  out.revenueModel = pick('revenue model');
+  out.totalFunding = pick('total funding');
+  out.cashRunway = pick('cash runway');
+  out.clients = pick('clients');
+  out.revLast12Months = pick('rev last 12 months');
+  out.revLastMonth = pick('rev last month');
+  out.roundAmount = pick('f6s listed round amount');
+  out.roundAmountCurrency = pick('f6s listed round amount currency');
+  out.roundValuation = pick('f6s listed round valuation amount');
+  out.roundValuationCurrency = pick('f6s listed round valuation currency');
+  out.roundStatus = pick('f6s listed round status');
+  out.roundType = pick('f6s listed round type');
+  out.roundUpdated = pick('f6s listed round updated date');
+  out.links.website2 = pick('angellist');
+  out.links.linkedin = pick('linkedin');
+  out.links.github = pick('github');
+  out.links.twitter = pick('twitter');
+  out.links.facebook = pick('facebook');
+  out.files = pick('files');
+  out.videos = pick('videos');
+  out.decks = pick('decks');
+  out.notes = pick('notes');
+
+  // Fall back oneLiner to a trimmed description if no tagline/pitch was found
+  if(!out.oneLiner && out.description){
+    out.oneLiner = out.description.length > 160 ? out.description.slice(0,157)+'…' : out.description;
+  }
+
+  // Drop known admin/meta noise columns silently, keep everything else genuinely leftover as extra
+  NOISE_COLUMNS.forEach(nc => { if(lowerRow[nc] !== undefined) usedKeys.add(nc); });
   Object.keys(row).forEach(origKey => {
     const norm = normalizeHeader(origKey);
     if(!usedKeys.has(norm) && row[origKey] !== undefined && row[origKey] !== ''){
@@ -1264,17 +1316,78 @@ function renderEvaluatorDetail(){
       </div>
       <div class="panel-right">
         <div class="info-block">
-          <h4>Overview</h4>
+          <h4>Company Snapshot</h4>
           <div class="kv">
             <div>Sector</div><div>${esc(s.sector||'—')}</div>
             <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
             <div>Country</div><div>${esc(s.country||'—')}</div>
-            <div>Website</div><div>${s.website ? `<a href="${escAttr(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a>` : '—'}</div>
-            <div>Founders</div><div>${esc(s.founders||'—')}</div>
+            <div>Stage/Status</div><div>${esc(s.stage||'—')}</div>
+            <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
             <div>Contact</div><div>${esc(s.email||'—')}</div>
+            ${s.founded ? `<div>Founded</div><div>${esc(s.founded)}</div>` : ''}
+            ${s.incorporated ? `<div>Incorporated</div><div>${esc(s.incorporated)}</div>` : ''}
+            ${s.university ? `<div>University</div><div>${esc(s.university)}</div>` : ''}
           </div>
         </div>
-        ${s.oneLiner ? `<div class="info-block"><h4>Pitch</h4><div class="memo-text">${esc(s.oneLiner)}</div></div>` : ''}
+
+        <div class="info-block">
+          <h4>Team &amp; Founders</h4>
+          ${s.founderList && s.founderList.length ? `
+            <div class="kv">
+              ${s.founderList.map(f=>`<div>${esc(f.name)}</div><div>${esc(f.role||'—')}</div>`).join('')}
+            </div>
+          ` : `<div class="memo-text">${esc(s.founders || '—')}</div>`}
+        </div>
+
+        ${(s.oneLiner || s.description || s.differentiators) ? `
+        <div class="info-block">
+          <h4>Pitch</h4>
+          ${s.oneLiner ? `<div class="memo-text" style="font-weight:600;margin-bottom:10px;">${esc(s.oneLiner)}</div>` : ''}
+          ${s.description && s.description !== s.oneLiner ? `<div class="memo-text" style="margin-bottom:10px;">${esc(s.description)}</div>` : ''}
+          ${s.differentiators ? `<div class="memo-text"><b>Differentiators:</b> ${esc(s.differentiators)}</div>` : ''}
+        </div>` : ''}
+
+        ${(s.milestone || s.revenueModel || s.revLastMonth || s.revLast12Months || s.clients || s.cashRunway) ? `
+        <div class="info-block">
+          <h4>Traction &amp; Metrics</h4>
+          <div class="kv">
+            ${s.milestone ? `<div>Milestone</div><div>${esc(s.milestone)}</div>` : ''}
+            ${s.revenueModel ? `<div>Revenue model</div><div>${esc(s.revenueModel)}</div>` : ''}
+            ${s.revLastMonth ? `<div>Revenue (last month)</div><div>${esc(s.revLastMonth)}</div>` : ''}
+            ${s.revLast12Months ? `<div>Revenue (last 12mo)</div><div>${esc(s.revLast12Months)}</div>` : ''}
+            ${s.clients ? `<div>Clients</div><div>${esc(s.clients)}</div>` : ''}
+            ${s.cashRunway ? `<div>Cash runway</div><div>${esc(s.cashRunway)}</div>` : ''}
+          </div>
+        </div>` : ''}
+
+        ${(s.totalFunding || s.roundAmount || s.roundValuation || s.roundStatus || s.roundType) ? `
+        <div class="info-block">
+          <h4>Fundraising</h4>
+          <div class="kv">
+            ${s.totalFunding ? `<div>Total funding to date</div><div>${esc(s.totalFunding)}</div>` : ''}
+            ${s.roundAmount ? `<div>Round amount</div><div>${esc(s.roundAmount)}${s.roundAmountCurrency?' '+esc(s.roundAmountCurrency):''}</div>` : ''}
+            ${s.roundValuation ? `<div>Round valuation</div><div>${esc(s.roundValuation)}${s.roundValuationCurrency?' '+esc(s.roundValuationCurrency):''}</div>` : ''}
+            ${s.roundStatus ? `<div>Round status</div><div>${esc(s.roundStatus)}</div>` : ''}
+            ${s.roundType ? `<div>Round type</div><div>${esc(s.roundType)}</div>` : ''}
+            ${s.roundUpdated ? `<div>Last updated</div><div>${esc(s.roundUpdated)}</div>` : ''}
+          </div>
+        </div>` : ''}
+
+        ${(s.links && (s.links.linkedin||s.links.github||s.links.twitter||s.links.facebook||s.links.website2) || s.decks || s.videos || s.files) ? `
+        <div class="info-block">
+          <h4>Links &amp; Resources</h4>
+          <div class="kv">
+            ${s.links && s.links.linkedin ? `<div>LinkedIn</div><div>${asLink(s.links.linkedin)}</div>` : ''}
+            ${s.links && s.links.twitter ? `<div>Twitter/X</div><div>${asLink(s.links.twitter)}</div>` : ''}
+            ${s.links && s.links.github ? `<div>GitHub</div><div>${asLink(s.links.github)}</div>` : ''}
+            ${s.links && s.links.facebook ? `<div>Facebook</div><div>${asLink(s.links.facebook)}</div>` : ''}
+            ${s.links && s.links.website2 ? `<div>AngelList</div><div>${asLink(s.links.website2)}</div>` : ''}
+            ${s.decks ? `<div>Decks</div><div>${esc(s.decks)}</div>` : ''}
+            ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
+            ${s.files ? `<div>Files</div><div>${esc(s.files)}</div>` : ''}
+          </div>
+        </div>` : ''}
+
         ${extraEntries.length ? `<div class="info-block"><h4>Additional data (from CSV)</h4><div class="kv">
             ${extraEntries.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(String(v))}</div>`).join('')}
           </div></div>` : ''}
@@ -1353,6 +1466,12 @@ function esc(str){
   return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 function escAttr(str){ return esc(str); }
+function asLink(value){
+  if(!value) return '—';
+  let href = String(value).trim();
+  if(!/^https?:\/\//i.test(href)) href = 'https://' + href.replace(/^\/\//,'');
+  return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${esc(value)}</a>`;
+}
 
 /* ============ INIT ============ */
 loadAll();
