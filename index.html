@@ -437,8 +437,9 @@ const RUBRICS = {
 };
 
 function getRubric(startup){
-  if(!startup || !startup.track || !startup.type) return null;
-  return RUBRICS[startup.track + ':' + startup.type] || null;
+  if(!startup || !startup.type) return null;
+  const track = startup.track || 'pre-seed';
+  return RUBRICS[track + ':' + startup.type] || null;
 }
 function rubricMaxTotal(rubric){
   return rubric.reduce((sum,cat)=>sum+cat.maxPoints, 0);
