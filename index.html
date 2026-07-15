@@ -6,6 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#F7F6F2;
@@ -447,11 +448,11 @@ function renderAdminStartups(){
       <div class="section-title">Startups</div>
       <p class="section-sub" style="margin-bottom:0;">${S.startups.length} in the pipeline</p>
     </div>
-    <label class="btn btn-primary" for="csvInput">Upload F6S CSV</label>
-    <input type="file" id="csvInput" accept=".csv" style="display:none;" />
+    <label class="btn btn-primary" for="csvInput">Upload F6S export</label>
+    <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
   </div>
 
-  ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV export from F6S to get started.</div>` : `
+  ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : `
   <div class="table-wrap">
     <table>
       <thead><tr><th>Name</th><th>Sector</th><th>Stage</th><th>Country</th><th>Memo</th><th></th></tr></thead>
@@ -481,15 +482,37 @@ function attachAdminStartups(){
     csvInput.onchange = (e)=>{
       const file = e.target.files[0];
       if(!file) return;
-      Papa.parse(file, {
-        header:true, skipEmptyLines:true,
-        complete: (results)=>{
-          const rows = results.data.map(mapCsvRow).filter(r=>r.name && r.name !== '(unnamed startup)' || Object.keys(r.extra).length);
-          S.csvPreview = rows;
-          render();
-        },
-        error: ()=>{ toast('Could not parse that CSV'); }
-      });
+      const lowerName = file.name.toLowerCase();
+      const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls');
+
+      const finishRows = (rawRows)=>{
+        const rows = rawRows.map(mapCsvRow).filter(r=>r.name && r.name !== '(unnamed startup)' || Object.keys(r.extra).length);
+        if(rows.length === 0){ toast('No rows found in that file'); return; }
+        S.csvPreview = rows;
+        render();
+      };
+
+      if(isExcel){
+        const reader = new FileReader();
+        reader.onload = (evt)=>{
+          try{
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type:'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[firstSheetName];
+            const rawRows = XLSX.utils.sheet_to_json(sheet, { defval:'' });
+            finishRows(rawRows);
+          }catch(err){ console.error(err); toast('Could not parse that Excel file'); }
+        };
+        reader.onerror = ()=>{ toast('Could not read that file'); };
+        reader.readAsArrayBuffer(file);
+      } else {
+        Papa.parse(file, {
+          header:true, skipEmptyLines:true,
+          complete: (results)=>{ finishRows(results.data); },
+          error: ()=>{ toast('Could not parse that CSV'); }
+        });
+      }
     };
   }
   document.querySelectorAll('[data-i]').forEach(inp=>{
