@@ -126,6 +126,24 @@
   .info-block h4{font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin:0 0 8px;font-weight:700;}
   .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13.5px;}
   .kv div:nth-child(odd){color:var(--muted);}
+  .rubric-total-bar{position:sticky;top:0;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;z-index:5;}
+  .rubric-total-bar .label{font-size:12px;color:var(--accent-dark);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;}
+  .rubric-total-bar .value{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:18px;color:var(--accent-dark);}
+  .rubric-category{margin-bottom:24px;padding-bottom:4px;}
+  .rubric-cat-head{display:flex;justify-content:space-between;align-items:baseline;font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
+  .rubric-cat-head .mono{color:var(--muted);font-size:12px;}
+  .anchor-group{display:flex;flex-direction:column;gap:6px;}
+  .anchor-btn{display:flex;align-items:flex-start;gap:10px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12.5px;line-height:1.4;color:var(--ink);}
+  .anchor-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .anchor-btn.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent);}
+  .anchor-points{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent);flex-shrink:0;min-width:18px;}
+  .anchor-label{color:var(--muted);}
+  .anchor-btn.selected .anchor-label{color:var(--ink);}
+  .gonogo-row{display:flex;gap:10px;margin:20px 0;}
+  .gonogo-btn{flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:13.5px;text-align:center;}
+  .gonogo-btn.go.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .gonogo-btn.nogo.selected{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .type-warning{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:14px 16px;font-size:13px;}
   .memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;}
   .back-row{margin-bottom:18px;}
 
@@ -197,13 +215,245 @@ async function sset(key, value){
   }catch(e){ console.error('storage set failed', key, e); return false; }
 }
 
-const DEFAULT_CRITERIA = [
-  {key:'team', label:'Team & Founders'},
-  {key:'market', label:'Market Opportunity'},
-  {key:'product', label:'Product & Technology'},
-  {key:'traction', label:'Traction & Metrics'},
-  {key:'moat', label:'Business Model & Moat'}
+/* ============ SCORING RUBRICS ============ */
+// Categories shared by both Deeptech and Tech-enabled at the Pre-Seed stage.
+const SHARED_CATEGORIES_PRESEED = [
+  {
+    id:'team', label:'1. Team Strength & Inclusion', maxPoints:25,
+    subcriteria:[
+      {key:'founder_commitment', label:'Full-time founder commitment', maxPoints:5, anchors:[
+        {points:5, label:'All co-founders are full-time'},
+        {points:3, label:'Only the lead founder is full-time'},
+        {points:1, label:'All founders are part-time'},
+        {points:0, label:'No full-time founder commitment'}
+      ]},
+      {key:'team_size', label:'Team size & capacity', maxPoints:4, anchors:[
+        {points:4, label:'Team of 5 or more people'},
+        {points:3, label:'Team of 3-4'},
+        {points:2, label:'Team of 2'},
+        {points:1, label:'Solo founder'},
+        {points:0, label:'No operational team'}
+      ]},
+      {key:'female_team', label:'Female team members', maxPoints:2, anchors:[
+        {points:2, label:'\u226530% of the team are women'},
+        {points:1, label:'At least 1 woman on the team'},
+        {points:0, label:'No female team members'}
+      ]},
+      {key:'women_leadership', label:'Women in leadership roles', maxPoints:2, anchors:[
+        {points:2, label:'At least one woman in a founder or executive role (CXO)'},
+        {points:1, label:'Women present but not in leadership'},
+        {points:0, label:'No women in leadership'}
+      ]},
+      {key:'youth', label:'Youth representation (<35)', maxPoints:2, anchors:[
+        {points:2, label:'\u226550% of the team is under 35 years old'},
+        {points:1, label:'Some team members under 35, but <50%'},
+        {points:0, label:'No team members under 35'}
+      ]},
+      {key:'team_complementarity', label:'Team complementarity (via NLP)', maxPoints:5, anchors:[
+        {points:5, label:'Clear, well-balanced roles with complementary skills (e.g. tech, business, operations)'},
+        {points:4, label:'Mostly complementary roles, minor overlaps or gaps'},
+        {points:3, label:'Some differentiation, but roles are unclear or overlapping'},
+        {points:2, label:'Minimal complementarity or unclear responsibilities'},
+        {points:1, label:'All founders have similar profiles or unclear functions'},
+        {points:0, label:'No information provided or roles completely unclear'}
+      ]},
+      {key:'team_credentials', label:'Team credentials', maxPoints:5, anchors:[
+        {points:5, label:'Strong, relevant experience in the sector; proven track record'},
+        {points:4, label:'Relevant experience, but limited in years or sector depth'},
+        {points:3, label:'Somewhat relevant background, transferable skills'},
+        {points:2, label:'Limited experience or unrelated background'},
+        {points:1, label:'Minimal experience; weak fit for the challenge'},
+        {points:0, label:'No relevant credentials or unclear background'}
+      ]}
+    ]
+  },
+  {
+    id:'solution', label:'3. Solution Clarity & Impact', maxPoints:25,
+    subcriteria:[
+      {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:6, anchors:[
+        {points:6, label:'Problem is specific, urgent, and well-evidenced, with clear impact'},
+        {points:5, label:'Problem is clear and relevant but lacks urgency or context'},
+        {points:3, label:'Problem is understood but somewhat generic or missing real-world grounding'},
+        {points:2, label:'Problem is vague or overly broad'},
+        {points:1, label:'Problem is unclear or not articulated'},
+        {points:0, label:'No problem defined'}
+      ]},
+      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6, anchors:[
+        {points:6, label:'Clear, compelling, and specific UVP; strong reason why customers would choose this over others'},
+        {points:5, label:'UVP is clear and relevant, but less differentiated or lacks proof'},
+        {points:3, label:'UVP is present but somewhat generic or unclear'},
+        {points:2, label:'UVP is weak or does not clearly address customer pain points'},
+        {points:1, label:'UVP is vague or not meaningfully different from competitors'},
+        {points:0, label:'No UVP articulated'}
+      ]},
+      {key:'impact', label:'Social/environmental impact', maxPoints:4, anchors:[
+        {points:4, label:'Clearly aligned with 2 or more SDGs or significant, measurable impact'},
+        {points:2, label:'Aligned with at least 1 SDG or general mention of impact'},
+        {points:0, label:'No clear impact or not mentioned'}
+      ]},
+      {key:'scalability', label:'Solution scalability (via NLP)', maxPoints:4, anchors:[
+        {points:4, label:'High scalability with evidence of market adaptability or replication'},
+        {points:3, label:'Scalable with early signs or logical path to broader markets'},
+        {points:1, label:'Limited scalability; heavily localized or customized'},
+        {points:0, label:'No scalable path identified'}
+      ]},
+      {key:'competitive_positioning', label:'Competitive positioning (via NLP)', maxPoints:5, anchors:[
+        {points:5, label:'Clear understanding of direct competitors, with specific, compelling differentiation for each'},
+        {points:4, label:'Competitors identified and some differentiation, though not fully convincing'},
+        {points:3, label:'General awareness of competitors, but differentiation is vague or weak'},
+        {points:1, label:'Competitors mentioned, but no clear differentiation'},
+        {points:0, label:'No competitors identified or completely missing rationale'}
+      ]}
+    ]
+  },
+  {
+    id:'fundraising', label:'4. Fundraising & Financial Readiness', maxPoints:15,
+    subcriteria:[
+      {key:'amount_raised', label:'Amount raised to date', maxPoints:4, anchors:[
+        {points:4, label:'Has raised >$25K from credible external sources (angels, grants, accelerators)'},
+        {points:3, label:'Raised $10K-25K from external sources'},
+        {points:2, label:'Raised <$10K externally, or mostly from informal sources'},
+        {points:1, label:'Only founder, family & friends funding'},
+        {points:0, label:'No funding raised'}
+      ]},
+      {key:'funding_diversity', label:'Funding source diversity', maxPoints:3, anchors:[
+        {points:3, label:'Multiple types of capital raised'},
+        {points:2, label:'One main external source'},
+        {points:1, label:'Mostly informal sources (family/friends) with minimal external capital'},
+        {points:0, label:'No capital raised / only founder-funded'}
+      ]},
+      {key:'fundraising_ask', label:'Clarity on fundraising ask', maxPoints:5, anchors:[
+        {points:5, label:'Clear ask with amount, funding type, use of funds, and stage of round'},
+        {points:4, label:'Clear amount and stage, with partial use of funds specified'},
+        {points:3, label:'Amount stated, but unclear stage or use'},
+        {points:2, label:'Vague or inconsistent fundraising information'},
+        {points:1, label:'Only mentions "raising" with no detail'},
+        {points:0, label:'No fundraising information provided'}
+      ]},
+      {key:'fundraising_momentum', label:'Fundraising engagement / momentum', maxPoints:3, anchors:[
+        {points:3, label:'Active investor conversations or informal commitments in progress'},
+        {points:2, label:'Some outreach underway, but still early stage'},
+        {points:1, label:'No current investor engagement, but fundraising intent stated'},
+        {points:0, label:'Not currently fundraising / no activity mentioned'}
+      ]}
+    ]
+  },
+  {
+    id:'market_fit', label:'5. Market Fit & Expansion Strategy', maxPoints:20,
+    subcriteria:[
+      {key:'gtm_strategy', label:'Go-to-market strategy (via NLP)', maxPoints:10, anchors:[
+        {points:10, label:'Clear, phased GTM plan tailored to target segment(s); includes specific channels and milestones'},
+        {points:8, label:'GTM plan exists and makes sense, but lacks some structure or detail'},
+        {points:6, label:'General direction identified, but plan is vague or untested'},
+        {points:3, label:'Basic or generic GTM strategy; lacks market understanding'},
+        {points:0, label:'No GTM strategy presented'}
+      ]},
+      {key:'expansion_plan', label:'Planned expansion & home country linkage', maxPoints:10, anchors:[
+        {points:10, label:'Strong link between home market advantage and a well-defined, realistic international expansion plan'},
+        {points:8, label:'Clear expansion ambition with logical ties to the home market'},
+        {points:6, label:'Expansion mentioned but loosely connected to current operations'},
+        {points:4, label:'Expansion vision exists but lacks credibility or alignment with current stage'},
+        {points:2, label:'No expansion plan, purely local model'},
+        {points:0, label:'No information provided'}
+      ]}
+    ]
+  }
 ];
+
+// The one category that differs between Deeptech and Tech-enabled: Early Traction & Validation (15 pts)
+const TRACTION_CATEGORY_DEEPTECH = {
+  id:'traction', label:'2. Early Traction & Validation', maxPoints:15,
+  subcriteria:[
+    {key:'trl_validation', label:'Technology readiness (TRL) / technical validation', maxPoints:5, anchors:[
+      {points:5, label:'TRL 6-7: prototype demonstrated or tested in a relevant environment'},
+      {points:4, label:'TRL 5: components validated in relevant environment'},
+      {points:3, label:'TRL 4: lab validation of basic integrated system'},
+      {points:2, label:'TRL 2-3: proof-of-concept or experimental validation'},
+      {points:1, label:'Early conceptual testing'},
+      {points:0, label:'TRL 1: conceptual stage or basic principles observed'}
+    ]},
+    {key:'revenue_pilots', label:'Revenue / pilots or grants', maxPoints:4, anchors:[
+      {points:4, label:'Paid pilot, grant funding secured, or early revenue'},
+      {points:3, label:'Grant applied/pending or LOI with a pilot partner'},
+      {points:2, label:'Pilot discussions underway'},
+      {points:1, label:'Informal interest only'},
+      {points:0, label:'No engagement'}
+    ]},
+    {key:'ip_protection', label:'IP protection & defensibility', maxPoints:3, anchors:[
+      {points:3, label:'Patent filed or strong trade secret/defensibility strategy'},
+      {points:2, label:'IP strategy defined, not yet filed'},
+      {points:1, label:'Aware of IP needs, no action taken'},
+      {points:0, label:'No IP consideration or no information provided'}
+    ]},
+    {key:'customer_segments', label:'Customer segments', maxPoints:3, anchors:[
+      {points:3, label:'Clearly defined segments with early evidence (interviews, signups, pilots)'},
+      {points:2, label:'Segments identified but untested'},
+      {points:1, label:'Poorly defined or generic customer segments'},
+      {points:0, label:'No information on target customers'}
+    ]}
+  ]
+};
+const TRACTION_CATEGORY_TECH_ENABLED = {
+  id:'traction', label:'2. Early Traction & Validation', maxPoints:15,
+  subcriteria:[
+    {key:'revenue_users', label:'Revenue / paying users or pilots', maxPoints:5, anchors:[
+      {points:5, label:'>$2,000/month revenue or a robust paid pilot program'},
+      {points:4, label:'$500-2,000/month or multiple paying pilots'},
+      {points:3, label:'<$500/month or first paying customer/pilot'},
+      {points:2, label:'Non-paying pilot/beta users engaged'},
+      {points:1, label:'Informal testing only (friends/family)'},
+      {points:0, label:'Pre-launch'}
+    ]},
+    {key:'mvp_validation', label:'Product / MVP validation', maxPoints:4, anchors:[
+      {points:4, label:'Functional MVP in active real-world use'},
+      {points:3, label:'MVP tested with real user feedback'},
+      {points:2, label:'Working prototype, limited testing'},
+      {points:1, label:'Early proof of concept'},
+      {points:0, label:'Concept stage only'}
+    ]},
+    {key:'legal_incorporation', label:'Legal & incorporation', maxPoints:3, anchors:[
+      {points:3, label:'Legally incorporated + basic IP awareness'},
+      {points:2, label:'Incorporated, no IP strategy in place'},
+      {points:1, label:'Incorporation in progress'},
+      {points:0, label:'Not incorporated or no information provided'}
+    ]},
+    {key:'customer_segments', label:'Customer segments', maxPoints:3, anchors:[
+      {points:3, label:'Clearly defined segments with early evidence (interviews, signups, pilots)'},
+      {points:2, label:'Segments identified but untested'},
+      {points:1, label:'Poorly defined or generic customer segments'},
+      {points:0, label:'No information on target customers'}
+    ]}
+  ]
+};
+
+function insertTractionCategory(categories, tractionCat){
+  // Traction is category "2", inserted right after Team (category 1)
+  return [categories[0], tractionCat, ...categories.slice(1)];
+}
+
+const RUBRICS = {
+  'pre-seed:deeptech': insertTractionCategory(SHARED_CATEGORIES_PRESEED, TRACTION_CATEGORY_DEEPTECH),
+  'pre-seed:tech-enabled': insertTractionCategory(SHARED_CATEGORIES_PRESEED, TRACTION_CATEGORY_TECH_ENABLED)
+};
+
+function getRubric(startup){
+  if(!startup || !startup.track || !startup.type) return null;
+  return RUBRICS[startup.track + ':' + startup.type] || null;
+}
+function rubricMaxTotal(rubric){
+  return rubric.reduce((sum,cat)=>sum+cat.maxPoints, 0);
+}
+
+// Best-effort auto-detect of Deeptech vs Tech-enabled from F6S text fields; admin can always override.
+const DEEPTECH_HINTS = ['deep tech','deeptech','deep-tech','biotech','medtech','life science','hardware','robotics','materials science','nanotech','semiconductor','space tech','cleantech hardware','synthetic biology','quantum','photonics'];
+function guessStartupType(row){
+  const haystack = [row.sector, row.oneLiner, row.extra && row.extra['Markets'], row.extra && row.extra['Tags'], row.extra && row.extra['Pipeline'], row.extra && row.extra['Description']]
+    .filter(Boolean).join(' ').toLowerCase();
+  for(const hint of DEEPTECH_HINTS){
+    if(haystack.includes(hint)) return 'deeptech';
+  }
+  return 'tech-enabled';
+}
 
 /* ============ APP STATE ============ */
 let S = {
@@ -213,8 +463,7 @@ let S = {
   adminTab: 'startups',
   startups: [],
   evaluators: [],
-  scores: {},            // key `${evalId}::${startupId}` -> {values,comments,updatedAt}
-  criteria: DEFAULT_CRITERIA,
+  scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
   currentStartupId: null,
   csvPreview: null,      // rows parsed but not yet saved
   loading: true
@@ -233,7 +482,6 @@ async function loadAll(){
   S.startups = await sget(K.startups, []);
   S.evaluators = await sget(K.evaluators, []);
   S.scores = await sget(K.scores, {});
-  S.criteria = await sget(K.criteria, DEFAULT_CRITERIA);
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
     S.adminCodeExists = true;
@@ -325,6 +573,8 @@ function mapCsvRow(row){
     }
   });
   out.name = out.name || '(unnamed startup)';
+  out.track = 'pre-seed';
+  out.type = guessStartupType(out);
   return out;
 }
 
@@ -482,16 +732,21 @@ function renderAdminStartups(){
   if(S.csvPreview){
     return `
     <div class="section-title">Review before saving</div>
-    <p class="section-sub">${S.csvPreview.length} rows parsed from your CSV. Edit anything that looks off, then save.</p>
+    <p class="section-sub">${S.csvPreview.length} rows parsed from your file. Type was auto-guessed (Deeptech vs Tech-enabled), double check and adjust before saving.</p>
     <div class="table-wrap" style="margin-bottom:16px;">
       <table>
-        <thead><tr><th>Name</th><th>Sector</th><th>Stage</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Sector</th><th>Type</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
         <tbody>
           ${S.csvPreview.map((r,i)=>`
             <tr>
               <td><input data-i="${i}" data-f="name" value="${escAttr(r.name)}" style="width:140px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
               <td><input data-i="${i}" data-f="sector" value="${escAttr(r.sector)}" style="width:100px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
-              <td><input data-i="${i}" data-f="stage" value="${escAttr(r.stage)}" style="width:90px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td>
+                <select data-i="${i}" data-f="type" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
+                  <option value="tech-enabled" ${r.type==='tech-enabled'?'selected':''}>Tech-enabled</option>
+                  <option value="deeptech" ${r.type==='deeptech'?'selected':''}>Deeptech</option>
+                </select>
+              </td>
               <td><input data-i="${i}" data-f="country" value="${escAttr(r.country)}" style="width:90px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
               <td><input data-i="${i}" data-f="oneLiner" value="${escAttr(r.oneLiner)}" style="width:220px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
               <td><button class="icon-btn" data-remove="${i}">Remove</button></td>
@@ -509,7 +764,7 @@ function renderAdminStartups(){
   <div class="row-between" style="margin-bottom:18px;">
     <div>
       <div class="section-title">Startups</div>
-      <p class="section-sub" style="margin-bottom:0;">${S.startups.length} in the pipeline</p>
+      <p class="section-sub" style="margin-bottom:0;">${S.startups.length} in the pipeline &middot; Pre-Seed track</p>
     </div>
     <label class="btn btn-primary" for="csvInput">Upload F6S export</label>
     <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
@@ -518,13 +773,18 @@ function renderAdminStartups(){
   ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Sector</th><th>Stage</th><th>Country</th><th>Memo</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Sector</th><th>Type</th><th>Country</th><th>Memo</th><th></th></tr></thead>
       <tbody>
         ${S.startups.map(s=>`
           <tr>
             <td><b>${esc(s.name)}</b><div class="su-meta">${esc(s.oneLiner||'')}</div></td>
             <td>${esc(s.sector||'—')}</td>
-            <td>${esc(s.stage||'—')}</td>
+            <td>
+              <select data-set-type="${s.id}" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
+                <option value="tech-enabled" ${s.type==='tech-enabled'?'selected':''}>Tech-enabled</option>
+                <option value="deeptech" ${s.type==='deeptech'?'selected':''}>Deeptech</option>
+              </select>
+            </td>
             <td>${esc(s.country||'—')}</td>
             <td>${s.memo ? '<span class="pill pill-done">Written</span>' : '<span class="pill pill-pending">Empty</span>'}</td>
             <td>
@@ -579,9 +839,19 @@ function attachAdminStartups(){
     };
   }
   document.querySelectorAll('[data-i]').forEach(inp=>{
-    inp.oninput = ()=>{
+    const handler = ()=>{
       const i = +inp.dataset.i, f = inp.dataset.f;
       S.csvPreview[i][f] = inp.value;
+    };
+    inp.oninput = handler;
+    inp.onchange = handler;
+  });
+  document.querySelectorAll('[data-set-type]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const startup = S.startups.find(s=>s.id===sel.dataset.setType);
+      startup.type = sel.value;
+      await sset(K.startups, S.startups);
+      toast('Type updated');
     };
   });
   document.querySelectorAll('[data-remove]').forEach(b=>{
@@ -730,39 +1000,64 @@ function scoresForStartup(startupId){
 }
 function avgOf(nums){ if(!nums.length) return null; return (nums.reduce((a,b)=>a+b,0)/nums.length); }
 
+function scoreRowTotal(row, rubric){
+  if(!row.subScores) return null;
+  const vals = rubric.flatMap(cat=>cat.subcriteria.map(sub=>row.subScores[sub.key])).filter(v=>typeof v==='number');
+  if(!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0);
+}
+function categoryTotal(row, cat){
+  const vals = cat.subcriteria.map(sub=>row.subScores ? row.subScores[sub.key] : undefined).filter(v=>typeof v==='number');
+  if(!vals.length) return null;
+  return vals.reduce((a,b)=>a+b,0);
+}
+
 function renderAdminResults(){
   if(!S.startups.length) return `<div class="empty">No startups yet.</div>`;
   return `
   <div class="section-title">Results</div>
-  <p class="section-sub">Averaged across all evaluators who've submitted a score. Click a row to see individual scores and comments.</p>
+  <p class="section-sub">Averaged across all evaluators who've submitted a score. Click a row to see individual scores, Go/No-Go calls, and comments.</p>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Startup</th><th>Scores in</th>${S.criteria.map(c=>`<th>${esc(c.label)}</th>`).join('')}<th>Overall</th></tr></thead>
+      <thead><tr><th>Startup</th><th>Type</th><th>Scores in</th><th>Go / No-Go</th><th>Avg total</th></tr></thead>
       <tbody>
         ${S.startups.map(s=>{
+          const rubric = getRubric(s);
           const rows = scoresForStartup(s.id);
-          const perCrit = S.criteria.map(c=> avgOf(rows.map(r=>r.values[c.key]).filter(v=>v!==undefined)));
-          const overallAvg = avgOf(perCrit.filter(v=>v!==null));
+          const maxTotal = rubric ? rubricMaxTotal(rubric) : null;
+          const totals = rubric ? rows.map(r=>scoreRowTotal(r,rubric)).filter(v=>v!==null) : [];
+          const avgTotal = avgOf(totals);
+          const goCount = rows.filter(r=>r.goNoGo==='go').length;
+          const noGoCount = rows.filter(r=>r.goNoGo==='no-go').length;
           return `
           <tr class="agg-row" data-expand="${s.id}">
             <td><b>${esc(s.name)}</b></td>
+            <td>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '<span style="color:var(--danger);">Not set</span>'}</td>
             <td>${rows.length} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
-            ${perCrit.map(v=>`<td class="mono">${v===null?'—':v.toFixed(1)}</td>`).join('')}
-            <td class="mono" style="font-weight:700;">${overallAvg===null?'—':overallAvg.toFixed(1)}</td>
+            <td>${goCount||noGoCount ? `<span class="chip" style="background:var(--accent-soft);color:var(--accent);">Go: ${goCount}</span> <span class="chip" style="background:var(--danger-soft);color:var(--danger);">No-Go: ${noGoCount}</span>` : '—'}</td>
+            <td class="mono" style="font-weight:700;">${avgTotal===null?'—':avgTotal.toFixed(1)+' / '+maxTotal}</td>
           </tr>
-          <tr id="expand-${s.id}" style="display:none;"><td colspan="${S.criteria.length+3}" style="padding:0;">
+          <tr id="expand-${s.id}" style="display:none;"><td colspan="5" style="padding:0;">
             <div class="expand-panel">
-              ${rows.length===0 ? '<div class="su-meta">No scores submitted yet.</div>' : rows.map(r=>{
+              ${!rubric ? '<div class="su-meta">Set this startup\'s Type in the Startups tab to enable scoring.</div>' : rows.length===0 ? '<div class="su-meta">No scores submitted yet.</div>' : `
+              ${rubric.map(cat=>{
+                const catVals = rows.map(r=>categoryTotal(r,cat)).filter(v=>v!==null);
+                const catAvg = avgOf(catVals);
+                return `<div class="su-meta" style="margin-bottom:6px;"><b>${esc(cat.label)}:</b> ${catAvg===null?'—':catAvg.toFixed(1)} / ${cat.maxPoints} avg</div>`;
+              }).join('')}
+              <div style="height:10px;"></div>
+              ${rows.map(r=>{
                 const evaluator = S.evaluators.find(e=>e.id===r.evaluatorId);
+                const rowTotal = scoreRowTotal(r,rubric);
                 return `
                 <div class="eval-score-card">
-                  <div style="min-width:120px;"><b>${esc(evaluator?evaluator.name:'Unknown')}</b></div>
+                  <div style="min-width:120px;"><b>${esc(evaluator?evaluator.name:'Unknown')}</b><div class="su-meta">${rowTotal===null?'—':rowTotal+' / '+rubricMaxTotal(rubric)} &middot; ${r.goNoGo ? (r.goNoGo==='go'?'Go':'No-Go') : 'No call'}</div></div>
                   <div class="chip-row" style="flex:1;">
-                    ${S.criteria.map(c=>`<span class="chip">${esc(c.label)}: ${r.values[c.key]??'—'}</span>`).join('')}
+                    ${rubric.flatMap(cat=>cat.subcriteria).map(sub=>`<span class="chip">${esc(sub.label)}: ${r.subScores && r.subScores[sub.key]!==undefined ? r.subScores[sub.key] : '—'}</span>`).join('')}
                   </div>
                   <div style="flex:1;color:var(--muted);font-style:${r.comments?'normal':'italic'};">${esc(r.comments||'No comment')}</div>
                 </div>`;
-              }).join('')}
+              }).join('')}`}
             </div>
           </td></tr>`;
         }).join('')}
@@ -821,10 +1116,10 @@ function attachEvalLogin(){
 }
 
 /* ============ EVALUATOR SHELL ============ */
-function gaugeColor(avg){
-  if(avg===null) return {border:'var(--line)', text:'var(--muted)'};
-  if(avg < 4) return {border:'var(--danger)', text:'var(--danger)'};
-  if(avg < 7) return {border:'var(--gold)', text:'var(--gold)'};
+function gaugeColor(pct){
+  if(pct===null) return {border:'var(--line)', text:'var(--muted)'};
+  if(pct < 40) return {border:'var(--danger)', text:'var(--danger)'};
+  if(pct < 70) return {border:'var(--gold)', text:'var(--gold)'};
   return {border:'var(--accent)', text:'var(--accent)'};
 }
 
@@ -843,16 +1138,22 @@ function renderEvaluatorShell(){
     <div class="startup-list">
       ${assigned.map(s=>{
         const own = S.scores[ev.id+'::'+s.id];
-        const own_vals = own ? Object.values(own.values).filter(v=>v!==undefined) : [];
-        const own_avg = own_vals.length ? avgOf(own_vals) : null;
-        const g = gaugeColor(own_avg);
+        const rubric = getRubric(s);
+        const maxTotal = rubric ? rubricMaxTotal(rubric) : 100;
+        let ownTotal = null;
+        if(own && own.subScores){
+          const vals = Object.values(own.subScores).filter(v=>typeof v === 'number');
+          if(vals.length) ownTotal = vals.reduce((a,b)=>a+b,0);
+        }
+        const pct = ownTotal===null ? null : (ownTotal/maxTotal*100);
+        const g = gaugeColor(pct);
         return `
         <div class="startup-card" data-open="${s.id}">
           <div class="row">
-            <div class="gauge" style="border-color:${g.border};color:${g.text};">${own_avg===null?'—':own_avg.toFixed(1)}</div>
+            <div class="gauge" style="border-color:${g.border};color:${g.text};">${ownTotal===null?'—':ownTotal}</div>
             <div>
               <div class="su-name">${esc(s.name)}</div>
-              <div class="su-meta">${esc(s.sector||'')}${s.stage?' &middot; '+esc(s.stage):''}${s.country?' &middot; '+esc(s.country):''}</div>
+              <div class="su-meta">${esc(s.sector||'')}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}${s.country?' &middot; '+esc(s.country):''}</div>
             </div>
           </div>
           <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
@@ -875,9 +1176,50 @@ function renderEvaluatorDetail(){
   const ev = S.evaluator;
   const s = S.startups.find(x=>x.id===S.currentStartupId);
   const key = ev.id+'::'+s.id;
-  const existing = S.scores[key] || { values:{}, comments:'' };
-
+  const existing = S.scores[key] || { subScores:{}, goNoGo:null, comments:'' };
+  const rubric = getRubric(s);
   const extraEntries = Object.entries(s.extra||{});
+
+  const scoringHtml = !rubric ? `
+    <div class="type-warning">This startup doesn't have a Track/Type set yet, so the right scoring rubric can't be loaded. Ask the admin to set its Type (Deeptech or Tech-enabled) in the Startups tab.</div>
+  ` : `
+    <div class="rubric-total-bar">
+      <span class="label">Total score</span>
+      <span class="value" id="rubricTotal">0 / ${rubricMaxTotal(rubric)}</span>
+    </div>
+    <form id="scoreForm">
+      ${rubric.map(cat => `
+        <div class="rubric-category">
+          <div class="rubric-cat-head"><span>${esc(cat.label)}</span><span class="mono">/ ${cat.maxPoints}</span></div>
+          ${cat.subcriteria.map(sub => `
+            <div class="crit-row">
+              <div class="crit-row-top">
+                <span class="crit-label">${esc(sub.label)}</span>
+                <span class="crit-value" data-subtotal-for="${sub.key}">${existing.subScores[sub.key] ?? '—'}/${sub.maxPoints}</span>
+              </div>
+              <div class="anchor-group" data-subkey="${sub.key}">
+                ${sub.anchors.map(a => `
+                  <button type="button" class="anchor-btn ${existing.subScores[sub.key]===a.points?'selected':''}" data-sub="${sub.key}" data-points="${a.points}">
+                    <span class="anchor-points">${a.points}</span><span class="anchor-label">${esc(a.label)}</span>
+                  </button>`).join('')}
+              </div>
+            </div>`).join('')}
+        </div>`).join('')}
+
+      <div class="gonogo-row">
+        <button type="button" class="gonogo-btn go ${existing.goNoGo==='go'?'selected':''}" data-gonogo="go">Go</button>
+        <button type="button" class="gonogo-btn nogo ${existing.goNoGo==='no-go'?'selected':''}" data-gonogo="no-go">No-Go</button>
+      </div>
+
+      <div class="field">
+        <label>Comments</label>
+        <textarea id="commentsInput" rows="6" placeholder="Notes for the investment committee…">${esc(existing.comments||'')}</textarea>
+      </div>
+      <div class="save-bar">
+        <button type="button" class="btn btn-primary btn-block" id="saveScoreBtn">Save score</button>
+      </div>
+    </form>
+  `;
 
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
@@ -886,30 +1228,15 @@ function renderEvaluatorDetail(){
     <div class="detail-shell">
       <div class="panel-left">
         <h3 style="margin-top:0;">Score — ${esc(s.name)}</h3>
-        <form id="scoreForm">
-          ${S.criteria.map(c=>`
-            <div class="crit-row">
-              <div class="crit-row-top">
-                <span class="crit-label">${esc(c.label)}</span>
-                <span class="crit-value" id="val-${c.key}">${existing.values[c.key] ?? 5}</span>
-              </div>
-              <input type="range" min="1" max="10" step="1" data-crit="${c.key}" value="${existing.values[c.key] ?? 5}"/>
-            </div>`).join('')}
-          <div class="field">
-            <label>Comments</label>
-            <textarea id="commentsInput" rows="6" placeholder="Notes for the investment committee…">${esc(existing.comments||'')}</textarea>
-          </div>
-          <div class="save-bar">
-            <button type="button" class="btn btn-primary btn-block" id="saveScoreBtn">Save score</button>
-          </div>
-        </form>
+        <p class="su-meta" style="margin:-8px 0 16px;">${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : 'Type not set'} &middot; Pre-Seed rubric</p>
+        ${scoringHtml}
       </div>
       <div class="panel-right">
         <div class="info-block">
           <h4>Overview</h4>
           <div class="kv">
             <div>Sector</div><div>${esc(s.sector||'—')}</div>
-            <div>Stage</div><div>${esc(s.stage||'—')}</div>
+            <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
             <div>Country</div><div>${esc(s.country||'—')}</div>
             <div>Website</div><div>${s.website ? `<a href="${escAttr(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a>` : '—'}</div>
             <div>Founders</div><div>${esc(s.founders||'—')}</div>
@@ -930,25 +1257,57 @@ function renderEvaluatorDetail(){
   <div class="toast" id="toast"></div>`;
 }
 
+function computeRubricTotal(){
+  let total = 0;
+  document.querySelectorAll('.anchor-btn.selected').forEach(btn=>{ total += +btn.dataset.points; });
+  const totalEl = document.getElementById('rubricTotal');
+  if(totalEl){
+    const max = totalEl.textContent.split('/')[1].trim();
+    totalEl.textContent = total + ' / ' + max;
+  }
+}
+
 function attachEvaluatorDetailListeners(){
   document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; render(); };
   document.getElementById('backList').onclick = ()=>{ S.currentStartupId=null; render(); };
-  document.querySelectorAll('[data-crit]').forEach(slider=>{
-    slider.oninput = ()=>{
-      document.getElementById('val-'+slider.dataset.crit).textContent = slider.value;
+
+  document.querySelectorAll('.anchor-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const subkey = btn.dataset.sub;
+      document.querySelectorAll(`.anchor-btn[data-sub="${subkey}"]`).forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const subtotalEl = document.querySelector(`[data-subtotal-for="${subkey}"]`);
+      if(subtotalEl){
+        const max = subtotalEl.textContent.split('/')[1].trim();
+        subtotalEl.textContent = btn.dataset.points + '/' + max;
+      }
+      computeRubricTotal();
     };
   });
-  document.getElementById('saveScoreBtn').onclick = async ()=>{
-    const ev = S.evaluator, s = S.startups.find(x=>x.id===S.currentStartupId);
-    const key = ev.id+'::'+s.id;
-    const values = {};
-    document.querySelectorAll('[data-crit]').forEach(sl=>{ values[sl.dataset.crit] = +sl.value; });
-    const comments = document.getElementById('commentsInput').value;
-    S.scores[key] = { values, comments, updatedAt: Date.now() };
-    await sset(K.scores, S.scores);
-    toast('Score saved');
-    render();
-  };
+
+  document.querySelectorAll('.gonogo-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('.gonogo-btn').forEach(b=>b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+  });
+
+  const saveBtn = document.getElementById('saveScoreBtn');
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const ev = S.evaluator, s = S.startups.find(x=>x.id===S.currentStartupId);
+      const key = ev.id+'::'+s.id;
+      const subScores = {};
+      document.querySelectorAll('.anchor-btn.selected').forEach(btn=>{ subScores[btn.dataset.sub] = +btn.dataset.points; });
+      const goNoGoBtn = document.querySelector('.gonogo-btn.selected');
+      const goNoGo = goNoGoBtn ? goNoGoBtn.dataset.gonogo : null;
+      const comments = document.getElementById('commentsInput').value;
+      S.scores[key] = { subScores, goNoGo, comments, updatedAt: Date.now() };
+      await sset(K.scores, S.scores);
+      toast('Score saved');
+      render();
+    };
+  }
 }
 
 /* patch attachEvaluatorShell to also wire detail view */
