@@ -242,17 +242,46 @@ function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.rando
 
 /* ============ CSV MAPPING ============ */
 const FIELD_MAP = {
-  name: ['company name','company','startup','startup name','name'],
-  website: ['website','url','company website','link'],
-  sector: ['industry','sector','category','vertical'],
-  stage: ['stage','investment stage','funding stage'],
+  name: ['company name','company','startup','startup name','name','item name'],
+  website: ['website','url','company website','link','website 1'],
+  sector: ['industry','sector','category','vertical','markets'],
+  stage: ['stage','investment stage','funding stage','f6s listed round stage','status'],
   country: ['country','location','hq','hq location'],
-  oneLiner: ['tagline','one liner','one-liner','description','pitch','short description','elevator pitch'],
+  oneLiner: ['tagline','one liner','one-liner','pitch','short description','elevator pitch','description'],
   founders: ['founders','founder names','founder(s)','team'],
   email: ['email','contact email','founder email']
 };
 
 function normalizeHeader(h){ return (h||'').toString().trim().toLowerCase(); }
+
+// Some exports (e.g. F6S) prepend a title row before the real column headers.
+// Scan the first several rows and pick the first one that looks like a real header
+// row (most cells filled in), rather than assuming row 1 is always it.
+function arrayGridToObjects(grid){
+  if(!grid || !grid.length) return [];
+  let headerIdx = 0;
+  const scanLimit = Math.min(grid.length, 10);
+  for(let i=0; i<scanLimit; i++){
+    const row = grid[i] || [];
+    const filled = row.filter(c => c !== undefined && c !== null && String(c).trim() !== '').length;
+    if(filled >= Math.max(3, Math.ceil(row.length * 0.5))){
+      headerIdx = i;
+      break;
+    }
+  }
+  const headerRow = grid[headerIdx] || [];
+  const dataRows = grid.slice(headerIdx + 1);
+  return dataRows
+    .map(row => {
+      const obj = {};
+      headerRow.forEach((h, ci) => {
+        const key = (h ?? '').toString().trim();
+        if(key) obj[key] = row[ci] !== undefined ? row[ci] : '';
+      });
+      return obj;
+    })
+    .filter(obj => Object.values(obj).some(v => v !== '' && v !== undefined && v !== null));
+}
 
 function mapCsvRow(row){
   const lowerRow = {};
@@ -269,6 +298,20 @@ function mapCsvRow(row){
       }
     }
     out[field] = found ? String(found).trim() : '';
+  }
+  // F6S splits founders into separate "Founder N Name" / "Founder N Role" columns; combine them
+  if(!out.founders){
+    const founderParts = [];
+    for(let n=1; n<=5; n++){
+      const nameKey = 'founder '+n+' name';
+      const roleKey = 'founder '+n+' role';
+      if(lowerRow[nameKey]){
+        usedKeys.add(nameKey);
+        if(lowerRow[roleKey]){ usedKeys.add(roleKey); founderParts.push(lowerRow[nameKey]+' ('+lowerRow[roleKey]+')'); }
+        else { founderParts.push(String(lowerRow[nameKey])); }
+      }
+    }
+    if(founderParts.length) out.founders = founderParts.join(', ');
   }
   // keep leftover columns as extra info
   Object.keys(row).forEach(origKey => {
@@ -500,16 +543,16 @@ function attachAdminStartups(){
             const workbook = XLSX.read(data, { type:'array' });
             const firstSheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[firstSheetName];
-            const rawRows = XLSX.utils.sheet_to_json(sheet, { defval:'' });
-            finishRows(rawRows);
+            const grid = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
+            finishRows(arrayGridToObjects(grid));
           }catch(err){ console.error(err); toast('Could not parse that Excel file'); }
         };
         reader.onerror = ()=>{ toast('Could not read that file'); };
         reader.readAsArrayBuffer(file);
       } else {
         Papa.parse(file, {
-          header:true, skipEmptyLines:true,
-          complete: (results)=>{ finishRows(results.data); },
+          header:false, skipEmptyLines:true,
+          complete: (results)=>{ finishRows(arrayGridToObjects(results.data)); },
           error: ()=>{ toast('Could not parse that CSV'); }
         });
       }
