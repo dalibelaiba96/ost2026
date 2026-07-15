@@ -145,6 +145,8 @@
   .gonogo-btn.go.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
   .gonogo-btn.nogo.selected{background:var(--danger);border-color:var(--danger);color:#fff;}
   .type-warning{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:14px 16px;font-size:13px;}
+  .cat-summary{background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:12px;}
+  .cat-summary b{color:var(--accent-dark);}
   .memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;}
   .back-row{margin-bottom:18px;}
 
@@ -1440,10 +1442,66 @@ function asLink(value){
 
 // Builds the evidence shown under each rubric category in the evaluator's info panel,
 // so the data relevant to a category sits right next to where it's scored.
+// Composes a readable "here's what we know" paragraph per rubric category from the
+// structured application fields, so the evaluator gets a synthesis, not a raw field dump.
+function buildCategorySummary(catId, s){
+  const has = (v) => v !== undefined && v !== null && String(v).trim() !== '';
+  const join = (parts) => parts.filter(Boolean).join(' ');
+
+  if(catId === 'team'){
+    const list = s.founderList || [];
+    if(!list.length) return 'No founders were listed in the application.';
+    const names = list.map(f => f.role ? `${f.name} (${f.role})` : f.name).join(', ');
+    const sizeClause = list.length === 1 ? 'This is a solo-founder team:' : `This is a team of ${list.length} founders:`;
+    const uniClause = has(s.university) ? ` Affiliated with ${s.university}.` : '';
+    return join([sizeClause, names+'.'+uniClause]);
+  }
+
+  if(catId === 'traction'){
+    const parts = [];
+    if(has(s.milestone)) parts.push(`Currently at the "${s.milestone}" stage.`);
+    if(has(s.revLastMonth)) parts.push(`Reporting ${s.revLastMonth} in revenue last month${has(s.revLast12Months)?`, ${s.revLast12Months} over the last 12 months`:''}.`);
+    else if(has(s.revLast12Months)) parts.push(`Reporting ${s.revLast12Months} in revenue over the last 12 months.`);
+    if(has(s.clients)) parts.push(`Clients/users: ${s.clients}.`);
+    if(has(s.cashRunway)) parts.push(`Cash runway of ${s.cashRunway}.`);
+    if(has(s.incorporated)) parts.push(`Incorporated in ${s.incorporated}.`);
+    if(!parts.length) return 'No traction, revenue, or validation metrics were provided in the application.';
+    return parts.join(' ');
+  }
+
+  if(catId === 'solution'){
+    const parts = [];
+    if(has(s.oneLiner)) parts.push(s.oneLiner+(s.oneLiner.trim().endsWith('.')?'':'.'));
+    if(has(s.description) && s.description !== s.oneLiner) parts.push(s.description);
+    if(has(s.differentiators)) parts.push(`What they say sets them apart: ${s.differentiators}`);
+    if(!parts.length) return 'No problem/solution description was provided.';
+    return parts.join(' ');
+  }
+
+  if(catId === 'fundraising'){
+    const parts = [];
+    if(has(s.totalFunding)) parts.push(`Has raised ${s.totalFunding} to date.`);
+    if(has(s.roundAmount)) parts.push(`Currently raising ${s.roundAmount}${has(s.roundAmountCurrency)?' '+s.roundAmountCurrency:''}${has(s.roundValuation)?` at a ${s.roundValuation}${has(s.roundValuationCurrency)?' '+s.roundValuationCurrency:''} valuation`:''}${has(s.roundStatus)?`, round status: ${s.roundStatus}`:''}.`);
+    if(!parts.length) return 'No fundraising figures were provided, treat the fundraising ask as unclear unless the deck/notes say otherwise.';
+    return parts.join(' ');
+  }
+
+  if(catId === 'market_fit'){
+    const parts = [];
+    if(has(s.country)) parts.push(`Based in ${s.country}.`);
+    if(has(s.sector)) parts.push(`Operating in: ${s.sector}.`);
+    parts.push('No go-to-market plan or expansion strategy was captured as a separate field, this category is usually best judged from the pitch deck.');
+    return parts.join(' ');
+  }
+
+  return '';
+}
+
 function categoryEvidenceHtml(catId, s){
   const has = (v) => v !== undefined && v !== null && String(v).trim() !== '';
   const row = (label, val) => has(val) ? `<div>${esc(label)}</div><div>${esc(val)}</div>` : '';
   const gapNote = (text) => `<p class="su-meta" style="margin:8px 0 0;font-style:italic;">${esc(text)}</p>`;
+  const summaryHtml = `<div class="cat-summary"><b>Summary:</b> ${esc(buildCategorySummary(catId, s))}</div>`;
 
   if(catId === 'team'){
     const founderRows = (s.founderList||[]).length
@@ -1451,6 +1509,7 @@ function categoryEvidenceHtml(catId, s){
       : `<div class="memo-text">${esc(s.founders || 'No founder info provided.')}</div>`;
     const teamSize = (s.founderList||[]).length;
     return `
+      ${summaryHtml}
       ${founderRows}
       <div class="kv" style="margin-top:10px;">
         ${row('Team size (from founders listed)', teamSize ? teamSize+' founder(s) listed' : '')}
@@ -1462,6 +1521,7 @@ function categoryEvidenceHtml(catId, s){
 
   if(catId === 'traction'){
     return `
+      ${summaryHtml}
       <div class="kv">
         ${row('Milestone', s.milestone)}
         ${row('Incorporated', s.incorporated)}
@@ -1477,15 +1537,14 @@ function categoryEvidenceHtml(catId, s){
 
   if(catId === 'solution'){
     return `
-      ${has(s.oneLiner) ? `<div class="memo-text" style="font-weight:600;margin-bottom:10px;">${esc(s.oneLiner)}</div>` : ''}
-      ${has(s.description) && s.description !== s.oneLiner ? `<div class="memo-text" style="margin-bottom:10px;">${esc(s.description)}</div>` : ''}
-      ${has(s.differentiators) ? `<div class="memo-text"><b>Differentiators:</b> ${esc(s.differentiators)}</div>` : ''}
-      ${!has(s.oneLiner) && !has(s.description) && !has(s.differentiators) ? `<div class="memo-text" style="color:var(--muted);font-style:italic;">No pitch text provided.</div>` : gapNote('Competitive positioning and measurable social/environmental impact often aren\u2019t explicit here, look for it in the description above or the deck.')}
+      ${summaryHtml}
+      ${gapNote('Competitive positioning and measurable social/environmental impact often aren\u2019t explicit here, look for it in the text above or the deck.')}
     `;
   }
 
   if(catId === 'fundraising'){
     return `
+      ${summaryHtml}
       <div class="kv">
         ${row('Total funding to date', s.totalFunding)}
         ${row('Round amount', has(s.roundAmount) ? s.roundAmount + (has(s.roundAmountCurrency)?' '+s.roundAmountCurrency:'') : '')}
@@ -1500,6 +1559,7 @@ function categoryEvidenceHtml(catId, s){
 
   if(catId === 'market_fit'){
     return `
+      ${summaryHtml}
       <div class="kv">
         ${row('Location', s.country)}
         ${row('Markets / sector', s.sector)}
