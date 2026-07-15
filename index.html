@@ -234,6 +234,10 @@ async function loadAll(){
   S.evaluators = await sget(K.evaluators, []);
   S.scores = await sget(K.scores, {});
   S.criteria = await sget(K.criteria, DEFAULT_CRITERIA);
+  if(localStorage.getItem('dealroom_admin_authed') === '1'){
+    S.adminAuthed = true;
+    S.adminCodeExists = true;
+  }
   S.loading = false;
   render();
 }
@@ -415,16 +419,32 @@ async function attachAdminGate(){
   document.getElementById('adminCodeSubmit').onclick = async ()=>{
     const val = document.getElementById('adminCodeInput').value.trim();
     const err = document.getElementById('adminErr');
+    const btn = document.getElementById('adminCodeSubmit');
     if(!val){ err.textContent='Please enter a code.'; err.style.display='block'; return; }
+    err.style.display='none';
     if(!S.adminCodeExists){
-      await sset(K.adminCode, val);
+      btn.disabled = true; btn.textContent = 'Saving…';
+      const saved = await sset(K.adminCode, val);
+      // Verify the save actually landed before trusting it (Firestore rules/network issues fail silently otherwise)
+      const confirmRead = await sget(K.adminCode, null);
+      if(!saved || confirmRead !== val){
+        btn.disabled = false; btn.textContent = 'Create & continue';
+        err.textContent = "Couldn't save the admin code, check your Firestore rules are published, then try again.";
+        err.style.display = 'block';
+        return;
+      }
       S.adminCodeExists = true;
       S.adminAuthed = true;
+      localStorage.setItem('dealroom_admin_authed', '1');
       toast('Admin code created');
       render();
     } else {
       const existing = await sget(K.adminCode, null);
-      if(val === existing){ S.adminAuthed = true; render(); }
+      if(val === existing){
+        S.adminAuthed = true;
+        localStorage.setItem('dealroom_admin_authed', '1');
+        render();
+      }
       else { err.textContent='Incorrect code.'; err.style.display='block'; }
     }
   };
@@ -448,7 +468,7 @@ function renderAdminShell(){
 }
 
 function attachAdminShell(){
-  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.adminAuthed=false; render(); };
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.adminAuthed=false; localStorage.removeItem('dealroom_admin_authed'); render(); };
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick = ()=>{ S.adminTab = t.dataset.tab; S.csvPreview=null; render(); };
   });
