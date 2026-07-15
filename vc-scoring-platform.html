@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Deal Room — Evaluation Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#F7F6F2;
+    --surface:#FFFFFF;
+    --ink:#171A1C;
+    --muted:#6B6F76;
+    --line:#E4E1D6;
+    --accent:#0F6B4F;
+    --accent-dark:#0B5B42;
+    --accent-soft:#E3EFE9;
+    --gold:#B9862F;
+    --gold-soft:#F5EBD8;
+    --danger:#B3432E;
+    --danger-soft:#F6E6E1;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+  input,textarea,select{font-family:inherit;}
+  ::selection{background:var(--accent-soft);}
+
+  /* ---------- shell ---------- */
+  #app{min-height:100vh;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 28px;border-bottom:1px solid var(--line);background:var(--surface);
+    position:sticky;top:0;z-index:20;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:26px;height:26px;border-radius:6px;background:var(--accent);position:relative;flex-shrink:0;}
+  .brand-mark::after{content:"";position:absolute;inset:6px;border-radius:3px;background:var(--gold);}
+  .brand-name{font-weight:600;font-size:15px;letter-spacing:0.2px;}
+  .brand-tag{font-size:11px;color:var(--muted);margin-top:-2px;}
+  .who{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted);}
+  .who b{color:var(--ink);}
+  .logout{border:1px solid var(--line);background:transparent;padding:6px 12px;border-radius:8px;font-size:12.5px;color:var(--muted);}
+  .logout:hover{border-color:var(--danger);color:var(--danger);}
+
+  .center-screen{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:24px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:36px;max-width:420px;width:100%;box-shadow:0 1px 2px rgba(20,20,10,0.04);}
+  .card h2{margin:0 0 6px;font-size:22px;}
+  .card p.sub{color:var(--muted);font-size:13.5px;margin:0 0 24px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.4px;}
+  .field input, .field select, .field textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#FCFCFA;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{background:var(--accent-dark);}
+  .btn-primary:disabled{background:#B9C4BE;cursor:not-allowed;}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--ink);}
+  .btn-block{width:100%;}
+  .role-pick{display:flex;flex-direction:column;gap:12px;}
+  .role-btn{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#fff;text-align:left;}
+  .role-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .role-icon{width:38px;height:38px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0;}
+  .role-btn:hover .role-icon{background:var(--accent);color:#fff;}
+  .role-title{font-weight:600;font-size:14.5px;}
+  .role-desc{font-size:12.5px;color:var(--muted);}
+  .error-msg{color:var(--danger);font-size:12.5px;margin-top:8px;}
+  .back-link{background:none;border:none;color:var(--muted);font-size:12.5px;margin-bottom:18px;padding:0;text-decoration:underline;}
+
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:4px;padding:0 28px;border-bottom:1px solid var(--line);background:var(--surface);}
+  .tab{padding:12px 16px;font-size:13.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;}
+  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .content{padding:24px 28px;max-width:1200px;margin:0 auto;}
+
+  /* ---------- generic ---------- */
+  .row{display:flex;align-items:center;gap:10px;}
+  .row-between{display:flex;align-items:center;justify-content:space-between;}
+  .section-title{font-size:18px;margin:0 0 4px;}
+  .section-sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:600;}
+  .pill-pending{background:var(--gold-soft);color:var(--gold);}
+  .pill-done{background:var(--accent-soft);color:var(--accent);}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:36px;text-align:center;color:var(--muted);font-size:13.5px;}
+
+  /* ---------- upload ---------- */
+  .dropzone{border:1.5px dashed var(--line);border-radius:12px;padding:32px;text-align:center;background:#FCFCFA;}
+  .dropzone.drag{border-color:var(--accent);background:var(--accent-soft);}
+  .dropzone input[type=file]{display:none;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:0.3px;padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tr:hover td{background:#FAFAF7;}
+  .table-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;}
+  .icon-btn{border:none;background:none;color:var(--muted);padding:4px 6px;border-radius:6px;font-size:12px;}
+  .icon-btn:hover{color:var(--danger);background:var(--danger-soft);}
+  .startup-list{display:flex;flex-direction:column;gap:10px;}
+  .startup-card{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s;}
+  .startup-card:hover{border-color:var(--accent);}
+  .su-name{font-weight:600;font-size:14.5px;}
+  .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  /* score gauge */
+  .gauge{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;font-family:'JetBrains Mono',monospace;flex-shrink:0;border:3px solid var(--line);}
+
+  /* ---------- evaluator detail split ---------- */
+  .detail-shell{display:grid;grid-template-columns:380px 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;min-height:70vh;}
+  .panel-left{border-right:1px solid var(--line);padding:24px;background:#FCFCFA;}
+  .panel-right{padding:28px 32px;overflow-y:auto;max-height:80vh;}
+  .crit-row{margin-bottom:20px;}
+  .crit-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+  .crit-label{font-size:13px;font-weight:600;}
+  .crit-value{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent);font-size:14px;}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .save-bar{position:sticky;bottom:0;background:#FCFCFA;padding-top:16px;margin-top:8px;border-top:1px solid var(--line);}
+  .info-block{margin-bottom:22px;}
+  .info-block h4{font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin:0 0 8px;font-weight:700;}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13.5px;}
+  .kv div:nth-child(odd){color:var(--muted);}
+  .memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;}
+  .back-row{margin-bottom:18px;}
+
+  /* results */
+  .agg-row{cursor:pointer;}
+  .expand-panel{background:#FAFAF7;padding:16px 20px;border-bottom:1px solid var(--line);}
+  .eval-score-card{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:13px;}
+  .eval-score-card:last-child{border-bottom:none;}
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:600;padding:2px 8px;border-radius:100px;}
+
+  .assign-grid{display:grid;grid-template-columns:1fr;gap:8px;max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;}
+  .assign-item{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;font-size:13px;}
+  .assign-item:hover{background:var(--accent-soft);}
+  .assign-item input{width:auto;}
+
+  .toast{position:fixed;bottom:22px;right:22px;background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);z-index:100;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+
+  @media (max-width:900px){
+    .detail-shell{grid-template-columns:1fr;}
+    .panel-left{border-right:none;border-bottom:1px solid var(--line);}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+/* ============ FIREBASE / FIRESTORE SETUP ============ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBiWemdOcEBXjNRO0IyRCNjuCq0Tx_X0Ac",
+  authDomain: "ost2026-5b876.firebaseapp.com",
+  projectId: "ost2026-5b876",
+  storageBucket: "ost2026-5b876.firebasestorage.app",
+  messagingSenderId: "57167677056",
+  appId: "1:57167677056:web:47dc4393ac33b3e6c60865"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const COLLECTION = 'dealroom';
+
+/* ============ STORAGE HELPERS (backed by Firestore) ============ */
+const K = {
+  startups: 'startups',
+  evaluators: 'evaluators',
+  scores: 'scores',
+  criteria: 'criteria',
+  adminCode: 'admin_code'
+};
+
+async function sget(key, fallback){
+  try{
+    const snap = await getDoc(doc(db, COLLECTION, key));
+    if(!snap.exists()) return fallback;
+    const data = snap.data();
+    return data && data.json ? JSON.parse(data.json) : fallback;
+  }catch(e){ console.error('storage get failed', key, e); return fallback; }
+}
+async function sset(key, value){
+  try{
+    await setDoc(doc(db, COLLECTION, key), { json: JSON.stringify(value) });
+    return true;
+  }catch(e){ console.error('storage set failed', key, e); return false; }
+}
+
+const DEFAULT_CRITERIA = [
+  {key:'team', label:'Team & Founders'},
+  {key:'market', label:'Market Opportunity'},
+  {key:'product', label:'Product & Technology'},
+  {key:'traction', label:'Traction & Metrics'},
+  {key:'moat', label:'Business Model & Moat'}
+];
+
+/* ============ APP STATE ============ */
+let S = {
+  view: 'landing',       // landing | admin | evaluator
+  adminAuthed: false,
+  evaluator: null,       // logged-in evaluator object
+  adminTab: 'startups',
+  startups: [],
+  evaluators: [],
+  scores: {},            // key `${evalId}::${startupId}` -> {values,comments,updatedAt}
+  criteria: DEFAULT_CRITERIA,
+  currentStartupId: null,
+  csvPreview: null,      // rows parsed but not yet saved
+  loading: true
+};
+
+function toast(msg){
+  const el = document.getElementById('toast');
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+async function loadAll(){
+  S.startups = await sget(K.startups, []);
+  S.evaluators = await sget(K.evaluators, []);
+  S.scores = await sget(K.scores, {});
+  S.criteria = await sget(K.criteria, DEFAULT_CRITERIA);
+  S.loading = false;
+  render();
+}
+
+function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ============ CSV MAPPING ============ */
+const FIELD_MAP = {
+  name: ['company name','company','startup','startup name','name'],
+  website: ['website','url','company website','link'],
+  sector: ['industry','sector','category','vertical'],
+  stage: ['stage','investment stage','funding stage'],
+  country: ['country','location','hq','hq location'],
+  oneLiner: ['tagline','one liner','one-liner','description','pitch','short description','elevator pitch'],
+  founders: ['founders','founder names','founder(s)','team'],
+  email: ['email','contact email','founder email']
+};
+
+function normalizeHeader(h){ return (h||'').toString().trim().toLowerCase(); }
+
+function mapCsvRow(row){
+  const lowerRow = {};
+  Object.keys(row).forEach(k => lowerRow[normalizeHeader(k)] = row[k]);
+  const out = { extra: {} };
+  const usedKeys = new Set();
+  for(const field in FIELD_MAP){
+    let found = null;
+    for(const candidate of FIELD_MAP[field]){
+      if(lowerRow[candidate] !== undefined && lowerRow[candidate] !== ''){
+        found = lowerRow[candidate];
+        usedKeys.add(candidate);
+        break;
+      }
+    }
+    out[field] = found ? String(found).trim() : '';
+  }
+  // keep leftover columns as extra info
+  Object.keys(row).forEach(origKey => {
+    const norm = normalizeHeader(origKey);
+    if(!usedKeys.has(norm) && row[origKey] !== undefined && row[origKey] !== ''){
+      out.extra[origKey] = row[origKey];
+    }
+  });
+  out.name = out.name || '(unnamed startup)';
+  return out;
+}
+
+/* ============ RENDER ROOT ============ */
+function render(){
+  const app = document.getElementById('app');
+  if(S.loading){ app.innerHTML = '<div class="center-screen"><div class="mono" style="color:var(--muted)">Loading deal room…</div></div>'; return; }
+
+  if(S.view === 'landing'){ app.innerHTML = renderLanding(); attachLanding(); return; }
+  if(S.view === 'admin' && !S.adminAuthed){ app.innerHTML = renderAdminGate(); attachAdminGate(); return; }
+  if(S.view === 'admin' && S.adminAuthed){ app.innerHTML = renderAdminShell(); attachAdminShell(); return; }
+  if(S.view === 'evalLogin'){ app.innerHTML = renderEvalLogin(); attachEvalLogin(); return; }
+  if(S.view === 'evaluator'){ app.innerHTML = renderEvaluatorShell(); attachEvaluatorShell(); return; }
+}
+
+/* ============ TOPBAR ============ */
+function topbar(rightHtml){
+  return `
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">Deal Room</div>
+        <div class="brand-tag">Evaluation Platform</div>
+      </div>
+    </div>
+    <div class="who">${rightHtml}</div>
+  </div>`;
+}
+
+/* ============ LANDING ============ */
+function renderLanding(){
+  return `
+  ${topbar('')}
+  <div class="center-screen">
+    <div class="card">
+      <h2>Welcome</h2>
+      <p class="sub">Choose how you're accessing the deal room.</p>
+      <div class="role-pick">
+        <button class="role-btn" id="goAdmin">
+          <div class="role-icon">A</div>
+          <div>
+            <div class="role-title">Admin</div>
+            <div class="role-desc">Upload startups, assign evaluators, view results</div>
+          </div>
+        </button>
+        <button class="role-btn" id="goEval">
+          <div class="role-icon">E</div>
+          <div>
+            <div class="role-title">Evaluator</div>
+            <div class="role-desc">Score the startups assigned to you</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+function attachLanding(){
+  document.getElementById('goAdmin').onclick = ()=>{ S.view='admin'; render(); };
+  document.getElementById('goEval').onclick = ()=>{ S.view='evalLogin'; render(); };
+}
+
+/* ============ ADMIN GATE ============ */
+function renderAdminGate(){
+  const hasCode = !!localStorage_stub_flag(); // placeholder, actual check done async below via S.adminCodeSet
+  return `
+  ${topbar('')}
+  <div class="center-screen">
+    <div class="card">
+      <button class="back-link" id="backHome">&larr; Back</button>
+      <h2>${S.adminCodeExists ? 'Admin access' : 'Set up admin access'}</h2>
+      <p class="sub">${S.adminCodeExists ? 'Enter the admin code to continue.' : 'Create a code you will use to access the admin panel. Share it only with organizers.'}</p>
+      <div class="field">
+        <label>${S.adminCodeExists ? 'Admin code' : 'New admin code'}</label>
+        <input type="password" id="adminCodeInput" placeholder="e.g. a passphrase" />
+      </div>
+      <button class="btn btn-primary btn-block" id="adminCodeSubmit">${S.adminCodeExists ? 'Enter' : 'Create & continue'}</button>
+      <div class="error-msg" id="adminErr" style="display:none;"></div>
+    </div>
+  </div>`;
+}
+function localStorage_stub_flag(){ return true; }
+
+async function attachAdminGate(){
+  document.getElementById('backHome').onclick = ()=>{ S.view='landing'; render(); };
+  if(S.adminCodeExists === undefined){
+    const existing = await sget(K.adminCode, null);
+    S.adminCodeExists = !!existing;
+    render();
+    return;
+  }
+  document.getElementById('adminCodeSubmit').onclick = async ()=>{
+    const val = document.getElementById('adminCodeInput').value.trim();
+    const err = document.getElementById('adminErr');
+    if(!val){ err.textContent='Please enter a code.'; err.style.display='block'; return; }
+    if(!S.adminCodeExists){
+      await sset(K.adminCode, val);
+      S.adminCodeExists = true;
+      S.adminAuthed = true;
+      toast('Admin code created');
+      render();
+    } else {
+      const existing = await sget(K.adminCode, null);
+      if(val === existing){ S.adminAuthed = true; render(); }
+      else { err.textContent='Incorrect code.'; err.style.display='block'; }
+    }
+  };
+}
+
+/* ============ ADMIN SHELL ============ */
+function renderAdminShell(){
+  return `
+  ${topbar(`<b>Admin</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  <div class="tabs">
+    <button class="tab ${S.adminTab==='startups'?'active':''}" data-tab="startups">Startups</button>
+    <button class="tab ${S.adminTab==='evaluators'?'active':''}" data-tab="evaluators">Evaluators</button>
+    <button class="tab ${S.adminTab==='results'?'active':''}" data-tab="results">Results</button>
+  </div>
+  <div class="content">
+    ${S.adminTab==='startups' ? renderAdminStartups() : ''}
+    ${S.adminTab==='evaluators' ? renderAdminEvaluators() : ''}
+    ${S.adminTab==='results' ? renderAdminResults() : ''}
+  </div>
+  <div class="toast" id="toast"></div>`;
+}
+
+function attachAdminShell(){
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.adminAuthed=false; render(); };
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.onclick = ()=>{ S.adminTab = t.dataset.tab; S.csvPreview=null; render(); };
+  });
+  if(S.adminTab==='startups') attachAdminStartups();
+  if(S.adminTab==='evaluators') attachAdminEvaluators();
+  if(S.adminTab==='results') attachAdminResults();
+}
+
+/* ---- Admin: Startups tab ---- */
+function renderAdminStartups(){
+  if(S.csvPreview){
+    return `
+    <div class="section-title">Review before saving</div>
+    <p class="section-sub">${S.csvPreview.length} rows parsed from your CSV. Edit anything that looks off, then save.</p>
+    <div class="table-wrap" style="margin-bottom:16px;">
+      <table>
+        <thead><tr><th>Name</th><th>Sector</th><th>Stage</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
+        <tbody>
+          ${S.csvPreview.map((r,i)=>`
+            <tr>
+              <td><input data-i="${i}" data-f="name" value="${escAttr(r.name)}" style="width:140px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td><input data-i="${i}" data-f="sector" value="${escAttr(r.sector)}" style="width:100px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td><input data-i="${i}" data-f="stage" value="${escAttr(r.stage)}" style="width:90px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td><input data-i="${i}" data-f="country" value="${escAttr(r.country)}" style="width:90px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td><input data-i="${i}" data-f="oneLiner" value="${escAttr(r.oneLiner)}" style="width:220px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td><button class="icon-btn" data-remove="${i}">Remove</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary" id="confirmSave">Save ${S.csvPreview.length} startups</button>
+      <button class="btn btn-ghost" id="cancelPreview">Cancel</button>
+    </div>`;
+  }
+
+  return `
+  <div class="row-between" style="margin-bottom:18px;">
+    <div>
+      <div class="section-title">Startups</div>
+      <p class="section-sub" style="margin-bottom:0;">${S.startups.length} in the pipeline</p>
+    </div>
+    <label class="btn btn-primary" for="csvInput">Upload F6S CSV</label>
+    <input type="file" id="csvInput" accept=".csv" style="display:none;" />
+  </div>
+
+  ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV export from F6S to get started.</div>` : `
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Sector</th><th>Stage</th><th>Country</th><th>Memo</th><th></th></tr></thead>
+      <tbody>
+        ${S.startups.map(s=>`
+          <tr>
+            <td><b>${esc(s.name)}</b><div class="su-meta">${esc(s.oneLiner||'')}</div></td>
+            <td>${esc(s.sector||'—')}</td>
+            <td>${esc(s.stage||'—')}</td>
+            <td>${esc(s.country||'—')}</td>
+            <td>${s.memo ? '<span class="pill pill-done">Written</span>' : '<span class="pill pill-pending">Empty</span>'}</td>
+            <td>
+              <button class="icon-btn" data-edit-memo="${s.id}">Edit memo</button>
+              <button class="icon-btn" data-delete-startup="${s.id}">Delete</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`}
+
+  <div id="memoEditor"></div>`;
+}
+
+function attachAdminStartups(){
+  const csvInput = document.getElementById('csvInput');
+  if(csvInput){
+    csvInput.onchange = (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      Papa.parse(file, {
+        header:true, skipEmptyLines:true,
+        complete: (results)=>{
+          const rows = results.data.map(mapCsvRow).filter(r=>r.name && r.name !== '(unnamed startup)' || Object.keys(r.extra).length);
+          S.csvPreview = rows;
+          render();
+        },
+        error: ()=>{ toast('Could not parse that CSV'); }
+      });
+    };
+  }
+  document.querySelectorAll('[data-i]').forEach(inp=>{
+    inp.oninput = ()=>{
+      const i = +inp.dataset.i, f = inp.dataset.f;
+      S.csvPreview[i][f] = inp.value;
+    };
+  });
+  document.querySelectorAll('[data-remove]').forEach(b=>{
+    b.onclick = ()=>{ S.csvPreview.splice(+b.dataset.remove,1); render(); };
+  });
+  const confirmBtn = document.getElementById('confirmSave');
+  if(confirmBtn){
+    confirmBtn.onclick = async ()=>{
+      const newOnes = S.csvPreview.map(r => ({...r, id: uid('su'), memo:''}));
+      S.startups = [...S.startups, ...newOnes];
+      await sset(K.startups, S.startups);
+      S.csvPreview = null;
+      toast('Startups saved');
+      render();
+    };
+  }
+  const cancelBtn = document.getElementById('cancelPreview');
+  if(cancelBtn) cancelBtn.onclick = ()=>{ S.csvPreview=null; render(); };
+
+  document.querySelectorAll('[data-delete-startup]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Delete this startup? This will not delete existing scores.')) return;
+      S.startups = S.startups.filter(s=>s.id !== b.dataset.deleteStartup);
+      await sset(K.startups, S.startups);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-edit-memo]').forEach(b=>{
+    b.onclick = ()=>{
+      const startup = S.startups.find(s=>s.id===b.dataset.editMemo);
+      const holder = document.getElementById('memoEditor');
+      holder.innerHTML = `
+        <div class="card" style="max-width:640px;margin-top:20px;">
+          <h2 style="font-size:17px;">Memo — ${esc(startup.name)}</h2>
+          <p class="sub">This appears in the evaluator's info panel alongside the CSV data.</p>
+          <div class="field">
+            <textarea id="memoText" rows="10">${esc(startup.memo||'')}</textarea>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" id="saveMemo">Save memo</button>
+            <button class="btn btn-ghost" id="closeMemo">Close</button>
+          </div>
+        </div>`;
+      document.getElementById('saveMemo').onclick = async ()=>{
+        startup.memo = document.getElementById('memoText').value;
+        await sset(K.startups, S.startups);
+        toast('Memo saved');
+        holder.innerHTML = '';
+      };
+      document.getElementById('closeMemo').onclick = ()=>{ holder.innerHTML=''; };
+    };
+  });
+}
+
+/* ---- Admin: Evaluators tab ---- */
+function renderAdminEvaluators(){
+  return `
+  <div class="row-between" style="margin-bottom:18px;">
+    <div>
+      <div class="section-title">Evaluators</div>
+      <p class="section-sub" style="margin-bottom:0;">${S.evaluators.length} added</p>
+    </div>
+    <button class="btn btn-primary" id="addEvalBtn">+ Add evaluator</button>
+  </div>
+  <div id="addEvalForm"></div>
+
+  ${S.evaluators.length === 0 ? `<div class="empty">No evaluators yet. Add one, then assign startups to them.</div>` : `
+  <div class="startup-list">
+    ${S.evaluators.map(ev=>`
+      <div class="card" style="max-width:none;padding:18px 20px;">
+        <div class="row-between">
+          <div>
+            <div style="font-weight:600;font-size:14.5px;">${esc(ev.name)}</div>
+            <div class="su-meta mono">code: ${esc(ev.code)} &middot; ${ev.assignedStartupIds.length} assigned</div>
+          </div>
+          <div class="row">
+            <button class="icon-btn" data-assign="${ev.id}">Assign startups</button>
+            <button class="icon-btn" data-delete-eval="${ev.id}">Remove</button>
+          </div>
+        </div>
+        <div id="assignBox-${ev.id}"></div>
+      </div>`).join('')}
+  </div>`}
+  `;
+}
+function attachAdminEvaluators(){
+  document.getElementById('addEvalBtn').onclick = ()=>{
+    const holder = document.getElementById('addEvalForm');
+    holder.innerHTML = `
+      <div class="card" style="max-width:420px;margin-bottom:20px;">
+        <div class="field"><label>Name</label><input id="newEvalName" placeholder="e.g. Sara K."/></div>
+        <div class="field"><label>Access code</label><input id="newEvalCode" placeholder="short code you'll give them"/></div>
+        <div class="row"><button class="btn btn-primary" id="saveNewEval">Add</button><button class="btn btn-ghost" id="cancelNewEval">Cancel</button></div>
+      </div>`;
+    document.getElementById('cancelNewEval').onclick = ()=>{ holder.innerHTML=''; };
+    document.getElementById('saveNewEval').onclick = async ()=>{
+      const name = document.getElementById('newEvalName').value.trim();
+      const code = document.getElementById('newEvalCode').value.trim();
+      if(!name || !code){ toast('Name and code are both required'); return; }
+      S.evaluators.push({ id: uid('ev'), name, code, assignedStartupIds: [] });
+      await sset(K.evaluators, S.evaluators);
+      holder.innerHTML='';
+      toast('Evaluator added');
+      render();
+    };
+  };
+  document.querySelectorAll('[data-delete-eval]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Remove this evaluator?')) return;
+      S.evaluators = S.evaluators.filter(e=>e.id!==b.dataset.deleteEval);
+      await sset(K.evaluators, S.evaluators);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-assign]').forEach(b=>{
+    b.onclick = ()=>{
+      const ev = S.evaluators.find(e=>e.id===b.dataset.assign);
+      const box = document.getElementById('assignBox-'+ev.id);
+      if(box.innerHTML){ box.innerHTML=''; return; }
+      box.innerHTML = `
+        <div class="assign-grid" style="margin-top:12px;">
+          ${S.startups.length ? S.startups.map(s=>`
+            <label class="assign-item">
+              <input type="checkbox" data-su="${s.id}" ${ev.assignedStartupIds.includes(s.id)?'checked':''}/>
+              ${esc(s.name)} <span class="su-meta">${esc(s.sector||'')}</span>
+            </label>`).join('') : '<div class="su-meta">No startups uploaded yet.</div>'}
+        </div>`;
+      box.querySelectorAll('[data-su]').forEach(cb=>{
+        cb.onchange = async ()=>{
+          const suId = cb.dataset.su;
+          if(cb.checked && !ev.assignedStartupIds.includes(suId)) ev.assignedStartupIds.push(suId);
+          if(!cb.checked) ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>id!==suId);
+          await sset(K.evaluators, S.evaluators);
+          render();
+        };
+      });
+    };
+  });
+}
+
+/* ---- Admin: Results tab ---- */
+function scoresForStartup(startupId){
+  return Object.entries(S.scores)
+    .filter(([k,v])=> k.split('::')[1] === startupId)
+    .map(([k,v])=>({ evaluatorId:k.split('::')[0], ...v }));
+}
+function avgOf(nums){ if(!nums.length) return null; return (nums.reduce((a,b)=>a+b,0)/nums.length); }
+
+function renderAdminResults(){
+  if(!S.startups.length) return `<div class="empty">No startups yet.</div>`;
+  return `
+  <div class="section-title">Results</div>
+  <p class="section-sub">Averaged across all evaluators who've submitted a score. Click a row to see individual scores and comments.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Startup</th><th>Scores in</th>${S.criteria.map(c=>`<th>${esc(c.label)}</th>`).join('')}<th>Overall</th></tr></thead>
+      <tbody>
+        ${S.startups.map(s=>{
+          const rows = scoresForStartup(s.id);
+          const perCrit = S.criteria.map(c=> avgOf(rows.map(r=>r.values[c.key]).filter(v=>v!==undefined)));
+          const overallAvg = avgOf(perCrit.filter(v=>v!==null));
+          return `
+          <tr class="agg-row" data-expand="${s.id}">
+            <td><b>${esc(s.name)}</b></td>
+            <td>${rows.length} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
+            ${perCrit.map(v=>`<td class="mono">${v===null?'—':v.toFixed(1)}</td>`).join('')}
+            <td class="mono" style="font-weight:700;">${overallAvg===null?'—':overallAvg.toFixed(1)}</td>
+          </tr>
+          <tr id="expand-${s.id}" style="display:none;"><td colspan="${S.criteria.length+3}" style="padding:0;">
+            <div class="expand-panel">
+              ${rows.length===0 ? '<div class="su-meta">No scores submitted yet.</div>' : rows.map(r=>{
+                const evaluator = S.evaluators.find(e=>e.id===r.evaluatorId);
+                return `
+                <div class="eval-score-card">
+                  <div style="min-width:120px;"><b>${esc(evaluator?evaluator.name:'Unknown')}</b></div>
+                  <div class="chip-row" style="flex:1;">
+                    ${S.criteria.map(c=>`<span class="chip">${esc(c.label)}: ${r.values[c.key]??'—'}</span>`).join('')}
+                  </div>
+                  <div style="flex:1;color:var(--muted);font-style:${r.comments?'normal':'italic'};">${esc(r.comments||'No comment')}</div>
+                </div>`;
+              }).join('')}
+            </div>
+          </td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+function attachAdminResults(){
+  document.querySelectorAll('[data-expand]').forEach(row=>{
+    row.onclick = ()=>{
+      const panel = document.getElementById('expand-'+row.dataset.expand);
+      panel.style.display = panel.style.display==='none' ? 'table-row' : 'none';
+    };
+  });
+}
+
+/* ============ EVALUATOR LOGIN ============ */
+function renderEvalLogin(){
+  return `
+  ${topbar('')}
+  <div class="center-screen">
+    <div class="card">
+      <button class="back-link" id="backHome">&larr; Back</button>
+      <h2>Evaluator login</h2>
+      <p class="sub">Select your name and enter the access code you were given.</p>
+      <div class="field">
+        <label>Name</label>
+        <select id="evalNameSelect">
+          <option value="">Select your name…</option>
+          ${S.evaluators.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Access code</label>
+        <input type="password" id="evalCodeInput" placeholder="your code"/>
+      </div>
+      <button class="btn btn-primary btn-block" id="evalLoginSubmit">Enter</button>
+      <div class="error-msg" id="evalErr" style="display:none;"></div>
+    </div>
+  </div>`;
+}
+function attachEvalLogin(){
+  document.getElementById('backHome').onclick = ()=>{ S.view='landing'; render(); };
+  document.getElementById('evalLoginSubmit').onclick = ()=>{
+    const id = document.getElementById('evalNameSelect').value;
+    const code = document.getElementById('evalCodeInput').value.trim();
+    const err = document.getElementById('evalErr');
+    const ev = S.evaluators.find(e=>e.id===id);
+    if(!ev){ err.textContent='Please select your name.'; err.style.display='block'; return; }
+    if(ev.code !== code){ err.textContent='Incorrect code.'; err.style.display='block'; return; }
+    S.evaluator = ev;
+    S.view = 'evaluator';
+    S.currentStartupId = null;
+    render();
+  };
+}
+
+/* ============ EVALUATOR SHELL ============ */
+function gaugeColor(avg){
+  if(avg===null) return {border:'var(--line)', text:'var(--muted)'};
+  if(avg < 4) return {border:'var(--danger)', text:'var(--danger)'};
+  if(avg < 7) return {border:'var(--gold)', text:'var(--gold)'};
+  return {border:'var(--accent)', text:'var(--accent)'};
+}
+
+function renderEvaluatorShell(){
+  const ev = S.evaluator;
+  if(S.currentStartupId){
+    return renderEvaluatorDetail();
+  }
+  const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
+  return `
+  ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  <div class="content">
+    <div class="section-title">Your assigned startups</div>
+    <p class="section-sub">${assigned.length} startups to review</p>
+    ${assigned.length===0 ? `<div class="empty">No startups have been assigned to you yet. Check with the admin.</div>` : `
+    <div class="startup-list">
+      ${assigned.map(s=>{
+        const own = S.scores[ev.id+'::'+s.id];
+        const own_vals = own ? Object.values(own.values).filter(v=>v!==undefined) : [];
+        const own_avg = own_vals.length ? avgOf(own_vals) : null;
+        const g = gaugeColor(own_avg);
+        return `
+        <div class="startup-card" data-open="${s.id}">
+          <div class="row">
+            <div class="gauge" style="border-color:${g.border};color:${g.text};">${own_avg===null?'—':own_avg.toFixed(1)}</div>
+            <div>
+              <div class="su-name">${esc(s.name)}</div>
+              <div class="su-meta">${esc(s.sector||'')}${s.stage?' &middot; '+esc(s.stage):''}${s.country?' &middot; '+esc(s.country):''}</div>
+            </div>
+          </div>
+          <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>
+  <div class="toast" id="toast"></div>`;
+}
+
+function attachEvaluatorShell(){
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; render(); };
+  document.querySelectorAll('[data-open]').forEach(card=>{
+    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; render(); };
+  });
+}
+
+/* ---- Evaluator detail (scoring + info) ---- */
+function renderEvaluatorDetail(){
+  const ev = S.evaluator;
+  const s = S.startups.find(x=>x.id===S.currentStartupId);
+  const key = ev.id+'::'+s.id;
+  const existing = S.scores[key] || { values:{}, comments:'' };
+
+  const extraEntries = Object.entries(s.extra||{});
+
+  return `
+  ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  <div class="content">
+    <button class="back-link back-row" id="backList">&larr; Back to your list</button>
+    <div class="detail-shell">
+      <div class="panel-left">
+        <h3 style="margin-top:0;">Score — ${esc(s.name)}</h3>
+        <form id="scoreForm">
+          ${S.criteria.map(c=>`
+            <div class="crit-row">
+              <div class="crit-row-top">
+                <span class="crit-label">${esc(c.label)}</span>
+                <span class="crit-value" id="val-${c.key}">${existing.values[c.key] ?? 5}</span>
+              </div>
+              <input type="range" min="1" max="10" step="1" data-crit="${c.key}" value="${existing.values[c.key] ?? 5}"/>
+            </div>`).join('')}
+          <div class="field">
+            <label>Comments</label>
+            <textarea id="commentsInput" rows="6" placeholder="Notes for the investment committee…">${esc(existing.comments||'')}</textarea>
+          </div>
+          <div class="save-bar">
+            <button type="button" class="btn btn-primary btn-block" id="saveScoreBtn">Save score</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel-right">
+        <div class="info-block">
+          <h4>Overview</h4>
+          <div class="kv">
+            <div>Sector</div><div>${esc(s.sector||'—')}</div>
+            <div>Stage</div><div>${esc(s.stage||'—')}</div>
+            <div>Country</div><div>${esc(s.country||'—')}</div>
+            <div>Website</div><div>${s.website ? `<a href="${escAttr(s.website)}" target="_blank" rel="noopener">${esc(s.website)}</a>` : '—'}</div>
+            <div>Founders</div><div>${esc(s.founders||'—')}</div>
+            <div>Contact</div><div>${esc(s.email||'—')}</div>
+          </div>
+        </div>
+        ${s.oneLiner ? `<div class="info-block"><h4>Pitch</h4><div class="memo-text">${esc(s.oneLiner)}</div></div>` : ''}
+        ${extraEntries.length ? `<div class="info-block"><h4>Additional data (from CSV)</h4><div class="kv">
+            ${extraEntries.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(String(v))}</div>`).join('')}
+          </div></div>` : ''}
+        <div class="info-block">
+          <h4>Investment memo</h4>
+          <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>`;
+}
+
+function attachEvaluatorDetailListeners(){
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; render(); };
+  document.getElementById('backList').onclick = ()=>{ S.currentStartupId=null; render(); };
+  document.querySelectorAll('[data-crit]').forEach(slider=>{
+    slider.oninput = ()=>{
+      document.getElementById('val-'+slider.dataset.crit).textContent = slider.value;
+    };
+  });
+  document.getElementById('saveScoreBtn').onclick = async ()=>{
+    const ev = S.evaluator, s = S.startups.find(x=>x.id===S.currentStartupId);
+    const key = ev.id+'::'+s.id;
+    const values = {};
+    document.querySelectorAll('[data-crit]').forEach(sl=>{ values[sl.dataset.crit] = +sl.value; });
+    const comments = document.getElementById('commentsInput').value;
+    S.scores[key] = { values, comments, updatedAt: Date.now() };
+    await sset(K.scores, S.scores);
+    toast('Score saved');
+    render();
+  };
+}
+
+/* patch attachEvaluatorShell to also wire detail view */
+const _origAttachEvaluatorShell = attachEvaluatorShell;
+attachEvaluatorShell = function(){
+  if(S.currentStartupId){ attachEvaluatorDetailListeners(); return; }
+  _origAttachEvaluatorShell();
+};
+
+/* ============ UTIL ============ */
+function esc(str){
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escAttr(str){ return esc(str); }
+
+/* ============ INIT ============ */
+loadAll();
+</script>
+</body>
+</html>
