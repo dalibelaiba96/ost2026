@@ -155,10 +155,13 @@
   .gonogo-btn.go.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
   .gonogo-btn.nogo.selected{background:var(--danger);border-color:var(--danger);color:#fff;}
   .type-warning{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:14px 16px;font-size:13px;}
-  .qa-list{margin-top:10px;display:flex;flex-direction:column;gap:10px;}
-  .qa-item{border-left:2px solid var(--line);padding-left:10px;}
-  .qa-q{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px;}
-  .qa-a{font-size:13px;line-height:1.5;white-space:pre-wrap;}
+  .qa-list{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
+  .qa-item{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;transition:border-color .15s;}
+  .qa-item:hover{border-color:var(--accent);}
+  .qa-q{display:flex;align-items:flex-start;gap:10px;font-size:14px;font-weight:700;color:var(--ost-navy);line-height:1.4;margin-bottom:10px;}
+  .qa-q-badge{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;margin-top:1px;}
+  .qa-a{font-size:14.5px;line-height:1.7;white-space:pre-wrap;color:var(--ink);padding-left:34px;}
+  .qa-count{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 4px;}
   .stepper{display:flex;gap:6px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .step-dot{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:11.5px;font-weight:600;color:var(--muted);min-width:84px;text-align:center;}
   .step-dot.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
@@ -604,15 +607,15 @@ function mergeApplicationIntoStartup(startup, appRow){
 function categoryQAHtml(catId, s){
   const qa = s.application && s.application.qa;
   if(!qa) return '';
-  const nums = CATEGORY_QUESTIONS[catId] || [];
-  const items = nums.map(n => qa[n]).filter(Boolean);
-  if(!items.length) return '';
+  const nums = (CATEGORY_QUESTIONS[catId] || []).filter(n => qa[n]);
+  if(!nums.length) return '';
   return `
+    <p class="qa-count">${nums.length} application question${nums.length===1?'':'s'} for this category</p>
     <div class="qa-list">
-      ${items.map(item => `
+      ${nums.map(n => `
         <div class="qa-item">
-          <div class="qa-q">${esc(item.question)}</div>
-          <div class="qa-a">${esc(item.answer)}</div>
+          <div class="qa-q"><span class="qa-q-badge">${n}</span><span>${esc(qa[n].question)}</span></div>
+          <div class="qa-a">${esc(qa[n].answer)}</div>
         </div>
       `).join('')}
     </div>
