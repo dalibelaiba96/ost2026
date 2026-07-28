@@ -127,10 +127,18 @@
   .detail-shell{display:grid;grid-template-columns:380px 1fr;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;min-height:70vh;}
   .panel-left{border-right:1px solid var(--line);padding:24px;background:#FCFCFA;}
   .panel-right{padding:28px 32px;overflow-y:auto;max-height:80vh;}
-  .crit-row{margin-bottom:20px;}
+  .crit-row{margin-bottom:10px;}
   .crit-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
   .crit-label{font-size:13px;font-weight:600;}
-  .crit-value{font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--accent);font-size:14px;}
+  .crit-value{font-family:'Graphik',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent-dark);font-size:14px;flex-shrink:0;}
+  .crit-header{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;}
+  .crit-header:hover{border-color:var(--accent);}
+  .crit-header.scored{border-color:var(--accent);background:var(--accent-soft);}
+  .crit-header.open{border-color:var(--accent-dark);box-shadow:0 0 0 1px var(--accent-dark);}
+  .crit-header-main{flex:1;min-width:0;}
+  .crit-check{color:var(--accent-dark);font-weight:900;}
+  .crit-preview{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .crit-chevron{color:var(--muted);font-size:12px;flex-shrink:0;}
   input[type=range]{width:100%;accent-color:var(--accent);}
   .save-bar{position:sticky;bottom:0;background:#FCFCFA;padding-top:16px;margin-top:8px;border-top:1px solid var(--line);}
   .info-block{margin-bottom:22px;}
@@ -143,7 +151,7 @@
   .rubric-category{margin-bottom:24px;padding-bottom:4px;}
   .rubric-cat-head{display:flex;justify-content:space-between;align-items:baseline;font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
   .rubric-cat-head .mono{color:var(--muted);font-size:12px;}
-  .anchor-group{display:flex;flex-direction:column;gap:6px;}
+  .anchor-group{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding:0 2px;}
   .anchor-btn{display:flex;align-items:flex-start;gap:10px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12.5px;line-height:1.4;color:var(--ink);}
   .anchor-btn:hover{border-color:var(--accent);background:var(--accent-soft);}
   .anchor-btn.selected{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent);}
@@ -641,6 +649,9 @@ let S = {
 // Holds in-progress scoring across step navigation so nothing is lost moving between
 // categories (only the current category's buttons exist in the DOM at any moment).
 let draftScore = null;
+// Which sub-criterion is expanded in the current category's accordion (only one open at a time)
+let expandedSub = null;
+let expandedSubCatId = null;
 
 function toast(msg){
   const el = document.getElementById('toast');
@@ -1445,7 +1456,7 @@ function renderEvaluatorShell(){
 function attachEvaluatorShell(){
   document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; render(); };
   document.querySelectorAll('[data-open]').forEach(card=>{
-    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; S.scoringStep = 0; draftScore = null; render(); };
+    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null; render(); };
   });
 }
 
@@ -1548,6 +1559,11 @@ function renderEvaluatorDetail(){
         </div>
       </div>`;
   } else {
+    if(expandedSubCatId !== currentCat.id){
+      const firstUnscored = currentCat.subcriteria.find(sub => draft.subScores[sub.key] === undefined);
+      expandedSub = firstUnscored ? firstUnscored.key : null;
+      expandedSubCatId = currentCat.id;
+    }
     bodyHtml = `
       <div class="detail-shell">
         <div class="panel-left">
@@ -1556,19 +1572,30 @@ function renderEvaluatorDetail(){
             <span class="label">Category score</span>
             <span class="value" id="catSubtotal">${categorySubtotal(currentCat, draft)} / ${currentCat.maxPoints}</span>
           </div>
-          ${currentCat.subcriteria.map(sub => `
-            <div class="crit-row">
-              <div class="crit-row-top">
-                <span class="crit-label">${esc(sub.label)}</span>
+          ${currentCat.subcriteria.map(sub => {
+            const scored = draft.subScores[sub.key] !== undefined;
+            const isOpen = sub.key === expandedSub;
+            const selectedAnchor = scored ? sub.anchors.find(a=>a.points===draft.subScores[sub.key]) : null;
+            const previewText = scored ? (selectedAnchor ? `${selectedAnchor.points} — ${selectedAnchor.label}` : `${draft.subScores[sub.key]} pts`) : 'Not yet scored';
+            return `
+            <div class="crit-row" data-subkey="${sub.key}">
+              <div class="crit-header ${isOpen?'open':''} ${scored?'scored':''}" data-toggle-sub="${sub.key}">
+                <div class="crit-header-main">
+                  <span class="crit-label">${esc(sub.label)}${scored?' <span class=\"crit-check\">&check;</span>':''}</span>
+                  <span class="crit-preview">${esc(previewText)}</span>
+                </div>
                 <span class="crit-value" data-subtotal-for="${sub.key}">${draft.subScores[sub.key] ?? '—'}/${sub.maxPoints}</span>
+                <span class="crit-chevron">${isOpen?'\u25be':'\u25b8'}</span>
               </div>
-              <div class="anchor-group" data-subkey="${sub.key}">
+              ${isOpen ? `
+              <div class="anchor-group" data-subkey-group="${sub.key}">
                 ${sub.anchors.map(a => `
                   <button type="button" class="anchor-btn ${draft.subScores[sub.key]===a.points?'selected':''}" data-sub="${sub.key}" data-points="${a.points}">
                     <span class="anchor-points">${a.points}</span><span class="anchor-label">${esc(a.label)}</span>
                   </button>`).join('')}
-              </div>
-            </div>`).join('')}
+              </div>` : ''}
+            </div>`;
+          }).join('')}
           <div class="step-nav">
             <button type="button" class="btn btn-ghost" id="stepPrev" ${step===0?'disabled':''}>&larr; Back</button>
             <button type="button" class="btn btn-primary" id="stepNext">${step===rubric.length-1?'Review & finish':'Next section'} &rarr;</button>
@@ -1653,24 +1680,33 @@ function attachEvaluatorDetailListeners(){
     };
   }
 
-  // Anchor selection updates the draft directly and patches the DOM in place —
-  // no full re-render, so scroll position stays put while scoring.
+  // Header click manually expands/collapses a sub-criterion (only one open at a time)
+  document.querySelectorAll('[data-toggle-sub]').forEach(header=>{
+    header.onclick = ()=>{
+      const key = header.dataset.toggleSub;
+      expandedSub = (expandedSub === key) ? null : key;
+      render();
+      const row = document.querySelector(`[data-subkey="${expandedSub}"]`);
+      if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+    };
+  });
+
+  // Selecting an answer records the score, then auto-advances the accordion to the next
+  // unscored sub-criterion in this category, keeping it one decision at a time.
   document.querySelectorAll('.anchor-btn').forEach(btn=>{
     btn.onclick = ()=>{
       const subkey = btn.dataset.sub;
       draft.subScores[subkey] = +btn.dataset.points;
-      document.querySelectorAll(`.anchor-btn[data-sub="${subkey}"]`).forEach(b=>b.classList.remove('selected'));
-      btn.classList.add('selected');
-      const subtotalEl = document.querySelector(`[data-subtotal-for="${subkey}"]`);
-      if(subtotalEl){
-        const max = subtotalEl.textContent.split('/')[1].trim();
-        subtotalEl.textContent = btn.dataset.points + '/' + max;
-      }
-      const catTotalEl = document.getElementById('catSubtotal');
       const currentCat = rubric[S.scoringStep];
-      if(catTotalEl && currentCat){
-        catTotalEl.textContent = categorySubtotal(currentCat, draft) + ' / ' + currentCat.maxPoints;
-      }
+      const idx = currentCat.subcriteria.findIndex(sub=>sub.key===subkey);
+      const nextUnscored = currentCat.subcriteria.find((sub,i)=> i>idx && draft.subScores[sub.key]===undefined)
+        || currentCat.subcriteria.find(sub=>draft.subScores[sub.key]===undefined);
+      expandedSub = nextUnscored ? nextUnscored.key : null;
+      render();
+      const target = nextUnscored
+        ? document.querySelector(`[data-subkey="${nextUnscored.key}"]`)
+        : document.getElementById('stepNext');
+      if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
     };
   });
 
