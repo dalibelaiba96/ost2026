@@ -155,6 +155,17 @@
   .gonogo-btn.go.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
   .gonogo-btn.nogo.selected{background:var(--danger);border-color:var(--danger);color:#fff;}
   .type-warning{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:14px 16px;font-size:13px;}
+  .qa-list{margin-top:10px;display:flex;flex-direction:column;gap:10px;}
+  .qa-item{border-left:2px solid var(--line);padding-left:10px;}
+  .qa-q{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;margin-bottom:2px;}
+  .qa-a{font-size:13px;line-height:1.5;white-space:pre-wrap;}
+  .stepper{display:flex;gap:6px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .step-dot{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:11.5px;font-weight:600;color:var(--muted);min-width:84px;text-align:center;}
+  .step-dot.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
+  .step-dot.final.active{border-color:var(--ost-navy);background:#EDEEF2;color:var(--ost-navy);}
+  .step-dot .step-sub{font-family:'Graphik',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;font-size:12px;}
+  .step-nav{display:flex;justify-content:space-between;gap:10px;margin-top:20px;}
+  .step-nav .btn{flex:1;}
   .cat-summary{background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:12px;}
   .cat-summary b{color:var(--accent-dark);}
   .memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;}
@@ -493,6 +504,122 @@ function guessStartupType(row){
   return 'tech-enabled';
 }
 
+/* ============ RICH APPLICATION SHEET (94-question F6S application) ============ */
+// Maps each rubric category to the question numbers whose answers are most relevant
+// to scoring it, so the evaluator sees supporting evidence right where they grade.
+const CATEGORY_QUESTIONS = {
+  team: [13,17,24,38,39,40,41,42,43,44,45],
+  traction: [34,51,52,54,55,57,62,63,64,65,66,67,68,69],
+  solution: [3,32,46,47,48,49,50,60,61,70],
+  fundraising: [73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89],
+  market_fit: [58,59,71,72]
+};
+
+// Parses a row from the rich "application" sheet (columns like "Question 38: ...",
+// "Question 73: ... (Currency)") into a clean {basics, qa} structure.
+function mapApplicationRow(row){
+  const lower = {};
+  Object.keys(row).forEach(k => { lower[normalizeHeader(k)] = row[k]; });
+  const getVal = (headerKey) => {
+    const v = lower[normalizeHeader(headerKey)];
+    return (v !== undefined && v !== null && String(v).trim() !== '') ? String(v).trim() : '';
+  };
+
+  const basics = {
+    contactName: getVal('Primary Contact Name'),
+    contactTitle: getVal('Primary Contact Title'),
+    contactEmail: getVal('Primary Contact Email Address'),
+    city: getVal('City'),
+    country: getVal('Country'),
+    briefDescription: getVal('Brief Description'),
+    skillsOrMarkets: getVal('Skills or Markets'),
+    startDate: getVal('When did you start this company?'),
+    incorporatedYesNo: getVal('Are you registered or incorporated?'),
+    whatDoYouDo: getVal('What do you do in detail?'),
+    whatsDifferent: getVal("What's different/interesting about your Startup?") || getVal('What\u2019s different/interesting about your Startup?'),
+    howFarAlong: getVal('How far along are you?'),
+    runway: getVal('How much runway do you have left?'),
+    raising: getVal('Raising'),
+    amountRaising: getVal('Amount Raising'),
+    amountCurrency: getVal('Amount Currency'),
+    valuation: getVal('Valuation'),
+    valuationCurrency: getVal('Valuation Currency'),
+    fundStage: getVal('Fund Stage'),
+    founderExperience: getVal('Person 1 Experience')
+  };
+
+  // Parse every "Question N: <text>" column, combining amount + "(Currency)" pairs into one answer
+  const raw = {};
+  Object.keys(row).forEach(origKey => {
+    const m = String(origKey).match(/^Question (\d+):\s*(.*)$/s);
+    if(!m) return;
+    const num = parseInt(m[1], 10);
+    const label = m[2].trim();
+    const isCurrency = /\(Currency\)\s*$/.test(label);
+    const baseLabel = label.replace(/\s*\(Currency\)\s*$/, '').trim();
+    const val = row[origKey];
+    if(val === undefined || val === null || String(val).trim() === '') return;
+    if(!raw[num]) raw[num] = { label: baseLabel, value: '', currency: '' };
+    if(isCurrency) raw[num].currency = String(val).trim();
+    else { raw[num].value = String(val).trim(); raw[num].label = baseLabel; }
+  });
+
+  const qa = {};
+  Object.keys(raw).forEach(numStr => {
+    const num = +numStr;
+    const item = raw[num];
+    let answer = item.value;
+    if(item.currency && answer) answer = answer + ' ' + item.currency;
+    if(answer) qa[num] = { question: item.label, answer };
+  });
+
+  return { basics, qa };
+}
+
+// Merges rich application-sheet data into a startup already built from the Pipeline sheet.
+// Fills gaps in existing fields rather than overwriting good data, and refines the
+// Deeptech/Tech-enabled guess using the founder's own self-declared answer (Q2) when present.
+function mergeApplicationIntoStartup(startup, appRow){
+  const app = mapApplicationRow(appRow);
+  startup.application = app;
+  const b = app.basics;
+  if(!startup.oneLiner && b.briefDescription) startup.oneLiner = b.briefDescription;
+  if(!startup.description && b.whatDoYouDo) startup.description = b.whatDoYouDo;
+  if(!startup.differentiators && b.whatsDifferent) startup.differentiators = b.whatsDifferent;
+  if(!startup.country && b.country) startup.country = b.country;
+  if(!startup.founded && b.startDate) startup.founded = b.startDate;
+  if(!startup.incorporated && b.incorporatedYesNo) startup.incorporated = b.incorporatedYesNo;
+  if(!startup.cashRunway && b.runway) startup.cashRunway = b.runway;
+  if(!startup.email && b.contactEmail) startup.email = b.contactEmail;
+
+  const q2 = app.qa[2];
+  if(q2 && q2.answer){
+    const a = q2.answer.toLowerCase();
+    if(a.includes('tech-enabled')) startup.type = 'tech-enabled';
+    else if(a.includes('deep') || a.includes('science')) startup.type = 'deeptech';
+  }
+}
+
+// Renders the Q&A relevant to one rubric category, straight from the founder's own answers.
+function categoryQAHtml(catId, s){
+  const qa = s.application && s.application.qa;
+  if(!qa) return '';
+  const nums = CATEGORY_QUESTIONS[catId] || [];
+  const items = nums.map(n => qa[n]).filter(Boolean);
+  if(!items.length) return '';
+  return `
+    <div class="qa-list">
+      ${items.map(item => `
+        <div class="qa-item">
+          <div class="qa-q">${esc(item.question)}</div>
+          <div class="qa-a">${esc(item.answer)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+
 /* ============ APP STATE ============ */
 let S = {
   view: 'landing',       // landing | admin | evaluator
@@ -503,9 +630,14 @@ let S = {
   evaluators: [],
   scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
   currentStartupId: null,
+  scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
   csvPreview: null,      // rows parsed but not yet saved
   loading: true
 };
+
+// Holds in-progress scoring across step navigation so nothing is lost moving between
+// categories (only the current category's buttons exist in the DOM at any moment).
+let draftScore = null;
 
 function toast(msg){
   const el = document.getElementById('toast');
@@ -912,8 +1044,8 @@ function attachAdminStartups(){
       const lowerName = file.name.toLowerCase();
       const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls');
 
-      const finishRows = (rawRows)=>{
-        const rows = rawRows.map(mapCsvRow).filter(r=>r.name && r.name !== '(unnamed startup)' || Object.keys(r.extra).length);
+      const finishMappedRows = (mappedRows)=>{
+        const rows = mappedRows.filter(r=>(r.name && r.name !== '(unnamed startup)') || Object.keys(r.extra).length || r.application);
         if(rows.length === 0){ toast('No rows found in that file'); return; }
         S.csvPreview = rows;
         render();
@@ -925,10 +1057,49 @@ function attachAdminStartups(){
           try{
             const data = new Uint8Array(evt.target.result);
             const workbook = XLSX.read(data, { type:'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[firstSheetName];
-            const grid = XLSX.utils.sheet_to_json(sheet, { header:1, defval:'' });
-            finishRows(arrayGridToObjects(grid));
+            const sheetNames = workbook.SheetNames;
+            const pipelineSheetName = sheetNames.find(n => /pipeline/i.test(n)) || sheetNames[0];
+            const otherSheetNames = sheetNames.filter(n => n !== pipelineSheetName);
+
+            const pipelineGrid = XLSX.utils.sheet_to_json(workbook.Sheets[pipelineSheetName], { header:1, defval:'' });
+            const startupRows = arrayGridToObjects(pipelineGrid).map(mapCsvRow);
+
+            if(otherSheetNames.length){
+              // If more than one non-pipeline sheet exists, use the richest one (most columns)
+              let bestName = otherSheetNames[0], bestCols = 0;
+              otherSheetNames.forEach(n=>{
+                const g = XLSX.utils.sheet_to_json(workbook.Sheets[n], { header:1, defval:'' });
+                const cols = g[0] ? g[0].length : 0;
+                if(cols > bestCols){ bestCols = cols; bestName = n; }
+              });
+              const appGrid = XLSX.utils.sheet_to_json(workbook.Sheets[bestName], { header:1, defval:'' });
+              const appRows = arrayGridToObjects(appGrid);
+
+              const nameKeyOf = (v) => String(v||'').trim().toLowerCase();
+              const appByName = {};
+              appRows.forEach(row=>{
+                const nm = nameKeyOf(row['Startup/Person Name'] || row['Item Name'] || row['Name']);
+                if(nm) appByName[nm] = row;
+              });
+
+              startupRows.forEach(startup=>{
+                const appRow = appByName[nameKeyOf(startup.name)];
+                if(appRow) mergeApplicationIntoStartup(startup, appRow);
+              });
+
+              // Application rows with no matching pipeline row still get included
+              const matchedNames = new Set(startupRows.map(s=>nameKeyOf(s.name)));
+              appRows.forEach(row=>{
+                const nm = nameKeyOf(row['Startup/Person Name'] || row['Item Name'] || row['Name']);
+                if(nm && !matchedNames.has(nm)){
+                  const startup = mapCsvRow({ 'Item Name': row['Startup/Person Name'] || 'Unnamed Startup' });
+                  mergeApplicationIntoStartup(startup, row);
+                  startupRows.push(startup);
+                }
+              });
+            }
+
+            finishMappedRows(startupRows);
           }catch(err){ console.error(err); toast('Could not parse that Excel file'); }
         };
         reader.onerror = ()=>{ toast('Could not read that file'); };
@@ -936,7 +1107,7 @@ function attachAdminStartups(){
       } else {
         Papa.parse(file, {
           header:false, skipEmptyLines:true,
-          complete: (results)=>{ finishRows(arrayGridToObjects(results.data)); },
+          complete: (results)=>{ finishMappedRows(arrayGridToObjects(results.data).map(mapCsvRow)); },
           error: ()=>{ toast('Could not parse that CSV'); }
         });
       }
@@ -1271,144 +1442,220 @@ function renderEvaluatorShell(){
 function attachEvaluatorShell(){
   document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; render(); };
   document.querySelectorAll('[data-open]').forEach(card=>{
-    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; render(); };
+    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; S.scoringStep = 0; draftScore = null; render(); };
   });
 }
 
 /* ---- Evaluator detail (scoring + info) ---- */
+function ensureDraftScore(ev, s){
+  const key = ev.id+'::'+s.id;
+  if(!draftScore || draftScore._key !== key){
+    const raw = S.scores[key] || {};
+    draftScore = {
+      _key: key,
+      subScores: { ...(raw.subScores||{}) },
+      goNoGo: raw.goNoGo || null,
+      comments: raw.comments || ''
+    };
+  }
+  return draftScore;
+}
+
+function categorySubtotal(cat, draft){
+  return cat.subcriteria.reduce((sum, sub) => sum + (draft.subScores[sub.key] ?? 0), 0);
+}
+
+async function persistDraft(ev, s, draft){
+  S.scores[draft._key] = {
+    subScores: { ...draft.subScores },
+    goNoGo: draft.goNoGo,
+    comments: draft.comments,
+    updatedAt: Date.now()
+  };
+  await sset(K.scores, S.scores);
+}
+
 function renderEvaluatorDetail(){
   const ev = S.evaluator;
   const s = S.startups.find(x=>x.id===S.currentStartupId);
-  const key = ev.id+'::'+s.id;
-  const rawExisting = S.scores[key] || {};
-  const existing = {
-    subScores: rawExisting.subScores || {},
-    goNoGo: rawExisting.goNoGo || null,
-    comments: rawExisting.comments || ''
-  };
   const rubric = getRubric(s);
-  const extraEntries = Object.entries(s.extra||{});
 
-  const scoringHtml = !rubric ? `
-    <div class="type-warning">This startup doesn't have a Track/Type set yet, so the right scoring rubric can't be loaded. Ask the admin to set its Type (Deeptech or Tech-enabled) in the Startups tab.</div>
-  ` : `
-    <div class="rubric-total-bar">
-      <span class="label">Total score</span>
-      <span class="value" id="rubricTotal">0 / ${rubricMaxTotal(rubric)}</span>
+  if(!rubric){
+    return `
+    ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+    <div class="content">
+      <button class="back-link back-row" id="backList">&larr; Back to your list</button>
+      <div class="type-warning">This startup doesn't have a Track/Type set yet, so the right scoring rubric can't be loaded. Ask the admin to set its Type (Deeptech or Tech-enabled) in the Startups tab.</div>
     </div>
-    <form id="scoreForm">
-      ${rubric.map(cat => `
-        <div class="rubric-category">
-          <div class="rubric-cat-head"><span>${esc(cat.label)}</span><span class="mono">/ ${cat.maxPoints}</span></div>
-          ${cat.subcriteria.map(sub => `
+    <div class="toast" id="toast"></div>`;
+  }
+
+  const draft = ensureDraftScore(ev, s);
+  const totalSteps = rubric.length + 1; // + final Go/No-Go & comments step
+  const step = Math.min(S.scoringStep || 0, totalSteps - 1);
+  const isFinalStep = step >= rubric.length;
+  const currentCat = isFinalStep ? null : rubric[step];
+
+  const stepperHtml = `
+    <div class="stepper">
+      ${rubric.map((cat, i) => `
+        <div class="step-dot ${i===step && !isFinalStep ? 'active':''}" data-step="${i}">
+          <span>${esc(cat.label.replace(/^\d+\.\s*/,''))}</span>
+          <span class="step-sub">${categorySubtotal(cat, draft)}/${cat.maxPoints}</span>
+        </div>`).join('')}
+      <div class="step-dot final ${isFinalStep?'active':''}" data-step="${rubric.length}">
+        <span>Go/No-Go &amp; Notes</span>
+        <span class="step-sub">${draft.goNoGo ? (draft.goNoGo==='go'?'Go':'No-Go') : '—'}</span>
+      </div>
+    </div>`;
+
+  let bodyHtml;
+  if(isFinalStep){
+    const overallTotal = rubric.reduce((sum,cat)=>sum+categorySubtotal(cat,draft),0);
+    bodyHtml = `
+      <div class="detail-shell">
+        <div class="panel-left">
+          <h3 style="margin-top:0;">Final call — ${esc(s.name)}</h3>
+          <div class="rubric-total-bar"><span class="label">Overall total</span><span class="value">${overallTotal} / ${rubricMaxTotal(rubric)}</span></div>
+          <div class="gonogo-row">
+            <button type="button" class="gonogo-btn go ${draft.goNoGo==='go'?'selected':''}" data-gonogo="go">Go</button>
+            <button type="button" class="gonogo-btn nogo ${draft.goNoGo==='no-go'?'selected':''}" data-gonogo="no-go">No-Go</button>
+          </div>
+          <div class="field">
+            <label>Comments</label>
+            <textarea id="commentsInput" rows="8" placeholder="Notes for the investment committee…">${esc(draft.comments||'')}</textarea>
+          </div>
+          <div class="step-nav">
+            <button type="button" class="btn btn-ghost" id="stepPrev">&larr; Back</button>
+            <button type="button" class="btn btn-primary" id="saveScoreBtn">Save &amp; finish</button>
+          </div>
+        </div>
+        <div class="panel-right">
+          <div class="info-block">
+            <h4>Review before you submit</h4>
+            <div class="kv">
+              ${rubric.map(cat=>`<div>${esc(cat.label)}</div><div>${categorySubtotal(cat,draft)} / ${cat.maxPoints}</div>`).join('')}
+            </div>
+          </div>
+          <p class="su-meta">Click any category above to go back and adjust a score before finishing.</p>
+          <div class="info-block">
+            <h4>Investment memo</h4>
+            <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    bodyHtml = `
+      <div class="detail-shell">
+        <div class="panel-left">
+          <h3 style="margin-top:0;">${esc(currentCat.label)}</h3>
+          <div class="rubric-total-bar">
+            <span class="label">Category score</span>
+            <span class="value" id="catSubtotal">${categorySubtotal(currentCat, draft)} / ${currentCat.maxPoints}</span>
+          </div>
+          ${currentCat.subcriteria.map(sub => `
             <div class="crit-row">
               <div class="crit-row-top">
                 <span class="crit-label">${esc(sub.label)}</span>
-                <span class="crit-value" data-subtotal-for="${sub.key}">${existing.subScores[sub.key] ?? '—'}/${sub.maxPoints}</span>
+                <span class="crit-value" data-subtotal-for="${sub.key}">${draft.subScores[sub.key] ?? '—'}/${sub.maxPoints}</span>
               </div>
               <div class="anchor-group" data-subkey="${sub.key}">
                 ${sub.anchors.map(a => `
-                  <button type="button" class="anchor-btn ${existing.subScores[sub.key]===a.points?'selected':''}" data-sub="${sub.key}" data-points="${a.points}">
+                  <button type="button" class="anchor-btn ${draft.subScores[sub.key]===a.points?'selected':''}" data-sub="${sub.key}" data-points="${a.points}">
                     <span class="anchor-points">${a.points}</span><span class="anchor-label">${esc(a.label)}</span>
                   </button>`).join('')}
               </div>
             </div>`).join('')}
-        </div>`).join('')}
-
-      <div class="gonogo-row">
-        <button type="button" class="gonogo-btn go ${existing.goNoGo==='go'?'selected':''}" data-gonogo="go">Go</button>
-        <button type="button" class="gonogo-btn nogo ${existing.goNoGo==='no-go'?'selected':''}" data-gonogo="no-go">No-Go</button>
-      </div>
-
-      <div class="field">
-        <label>Comments</label>
-        <textarea id="commentsInput" rows="6" placeholder="Notes for the investment committee…">${esc(existing.comments||'')}</textarea>
-      </div>
-      <div class="save-bar">
-        <button type="button" class="btn btn-primary btn-block" id="saveScoreBtn">Save score</button>
-      </div>
-    </form>
-  `;
+          <div class="step-nav">
+            <button type="button" class="btn btn-ghost" id="stepPrev" ${step===0?'disabled':''}>&larr; Back</button>
+            <button type="button" class="btn btn-primary" id="stepNext">${step===rubric.length-1?'Review & finish':'Next section'} &rarr;</button>
+          </div>
+        </div>
+        <div class="panel-right">
+          <div class="info-block">
+            <h4>Company Basics</h4>
+            <div class="kv">
+              <div>Sector</div><div>${esc(s.sector||'—')}</div>
+              <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
+              <div>Country</div><div>${esc(s.country||'—')}</div>
+              <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
+            </div>
+          </div>
+          <div class="info-block">
+            <h4>${esc(currentCat.label)} — Evidence</h4>
+            ${categoryEvidenceHtml(currentCat.id, s)}
+            ${categoryQAHtml(currentCat.id, s)}
+          </div>
+          <div class="info-block">
+            <h4>Investment memo</h4>
+            <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
+          </div>
+          ${(currentCat.id==='market_fit') ? `
+          <div class="info-block">
+            <h4>Resources</h4>
+            <div class="kv">
+              ${s.decks ? `<div>Pitch deck</div><div>${esc(s.decks)}</div>` : ''}
+              ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
+            </div>
+          </div>` : ''}
+        </div>
+      </div>`;
+  }
 
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  ${stepperHtml}
   <div class="content">
     <button class="back-link back-row" id="backList">&larr; Back to your list</button>
-    <div class="detail-shell">
-      <div class="panel-left">
-        <h3 style="margin-top:0;">Score — ${esc(s.name)}</h3>
-        <p class="su-meta" style="margin:-8px 0 16px;">${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : 'Type not set'} &middot; Pre-Seed rubric</p>
-        ${scoringHtml}
-      </div>
-      <div class="panel-right">
-        <div class="info-block">
-          <h4>Company Basics</h4>
-          <div class="kv">
-            <div>Sector</div><div>${esc(s.sector||'—')}</div>
-            <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
-            <div>Country</div><div>${esc(s.country||'—')}</div>
-            <div>Stage/Status</div><div>${esc(s.stage||'—')}</div>
-            <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
-            <div>Contact</div><div>${esc(s.email||'—')}</div>
-            ${s.founded ? `<div>Founded</div><div>${esc(s.founded)}</div>` : ''}
-            ${s.incorporated ? `<div>Incorporated</div><div>${esc(s.incorporated)}</div>` : ''}
-            ${s.university ? `<div>University</div><div>${esc(s.university)}</div>` : ''}
-          </div>
-        </div>
-
-        ${rubric ? rubric.map(cat => `
-          <div class="info-block">
-            <h4>${esc(cat.label)}</h4>
-            ${categoryEvidenceHtml(cat.id, s)}
-          </div>
-        `).join('') : ''}
-
-        <div class="info-block">
-          <h4>Resources &amp; Links</h4>
-          <p class="su-meta" style="margin:0 0 10px;">Some rubric items (GTM plan, competitive detail, IP strategy) are often only in the full application, not the export, check these if the fields above look thin.</p>
-          <div class="kv">
-            ${s.decks ? `<div>Pitch deck</div><div>${esc(s.decks)}</div>` : ''}
-            ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
-            ${s.files ? `<div>Files</div><div>${esc(s.files)}</div>` : ''}
-            ${s.links && s.links.linkedin ? `<div>LinkedIn</div><div>${asLink(s.links.linkedin)}</div>` : ''}
-            ${s.links && s.links.twitter ? `<div>Twitter/X</div><div>${asLink(s.links.twitter)}</div>` : ''}
-            ${s.links && s.links.github ? `<div>GitHub</div><div>${asLink(s.links.github)}</div>` : ''}
-            ${s.links && s.links.facebook ? `<div>Facebook</div><div>${asLink(s.links.facebook)}</div>` : ''}
-            ${s.links && s.links.website2 ? `<div>AngelList</div><div>${asLink(s.links.website2)}</div>` : ''}
-            ${!(s.decks||s.videos||s.files||(s.links&&(s.links.linkedin||s.links.twitter||s.links.github||s.links.facebook||s.links.website2))) ? `<div style="grid-column:1/-1;color:var(--muted);font-style:italic;">Nothing beyond the main website was provided.</div>` : ''}
-          </div>
-        </div>
-
-        ${extraEntries.length ? `<div class="info-block"><h4>Additional data (from CSV)</h4><div class="kv">
-            ${extraEntries.map(([k,v])=>`<div>${esc(k)}</div><div>${esc(String(v))}</div>`).join('')}
-          </div></div>` : ''}
-        <div class="info-block">
-          <h4>Investment memo</h4>
-          <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
-        </div>
-      </div>
-    </div>
+    ${bodyHtml}
   </div>
   <div class="toast" id="toast"></div>`;
 }
 
-function computeRubricTotal(){
-  let total = 0;
-  document.querySelectorAll('.anchor-btn.selected').forEach(btn=>{ total += +btn.dataset.points; });
-  const totalEl = document.getElementById('rubricTotal');
-  if(totalEl){
-    const max = totalEl.textContent.split('/')[1].trim();
-    totalEl.textContent = total + ' / ' + max;
-  }
-}
-
 function attachEvaluatorDetailListeners(){
-  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; render(); };
-  document.getElementById('backList').onclick = ()=>{ S.currentStartupId=null; render(); };
+  const ev = S.evaluator;
+  const s = S.startups.find(x=>x.id===S.currentStartupId);
+  const rubric = getRubric(s);
 
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; draftScore=null; render(); };
+  document.getElementById('backList').onclick = ()=>{ S.currentStartupId=null; draftScore=null; render(); };
+
+  if(!rubric) return;
+
+  const draft = ensureDraftScore(ev, s);
+
+  // Clicking any stepper dot jumps straight to that category/step (autosaving first)
+  document.querySelectorAll('[data-step]').forEach(dot=>{
+    dot.onclick = async ()=>{
+      await persistDraft(ev, s, draft);
+      S.scoringStep = +dot.dataset.step;
+      render();
+    };
+  });
+
+  const prevBtn = document.getElementById('stepPrev');
+  if(prevBtn){
+    prevBtn.onclick = async ()=>{
+      await persistDraft(ev, s, draft);
+      S.scoringStep = Math.max(0, (S.scoringStep||0) - 1);
+      render();
+    };
+  }
+  const nextBtn = document.getElementById('stepNext');
+  if(nextBtn){
+    nextBtn.onclick = async ()=>{
+      await persistDraft(ev, s, draft);
+      S.scoringStep = (S.scoringStep||0) + 1;
+      render();
+    };
+  }
+
+  // Anchor selection updates the draft directly and patches the DOM in place —
+  // no full re-render, so scroll position stays put while scoring.
   document.querySelectorAll('.anchor-btn').forEach(btn=>{
     btn.onclick = ()=>{
       const subkey = btn.dataset.sub;
+      draft.subScores[subkey] = +btn.dataset.points;
       document.querySelectorAll(`.anchor-btn[data-sub="${subkey}"]`).forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
       const subtotalEl = document.querySelector(`[data-subtotal-for="${subkey}"]`);
@@ -1416,30 +1663,34 @@ function attachEvaluatorDetailListeners(){
         const max = subtotalEl.textContent.split('/')[1].trim();
         subtotalEl.textContent = btn.dataset.points + '/' + max;
       }
-      computeRubricTotal();
+      const catTotalEl = document.getElementById('catSubtotal');
+      const currentCat = rubric[S.scoringStep];
+      if(catTotalEl && currentCat){
+        catTotalEl.textContent = categorySubtotal(currentCat, draft) + ' / ' + currentCat.maxPoints;
+      }
     };
   });
 
   document.querySelectorAll('.gonogo-btn').forEach(btn=>{
     btn.onclick = ()=>{
+      draft.goNoGo = btn.dataset.gonogo;
       document.querySelectorAll('.gonogo-btn').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
     };
   });
 
+  const commentsInput = document.getElementById('commentsInput');
+  if(commentsInput){
+    commentsInput.oninput = ()=>{ draft.comments = commentsInput.value; };
+  }
+
   const saveBtn = document.getElementById('saveScoreBtn');
   if(saveBtn){
     saveBtn.onclick = async ()=>{
-      const ev = S.evaluator, s = S.startups.find(x=>x.id===S.currentStartupId);
-      const key = ev.id+'::'+s.id;
-      const subScores = {};
-      document.querySelectorAll('.anchor-btn.selected').forEach(btn=>{ subScores[btn.dataset.sub] = +btn.dataset.points; });
-      const goNoGoBtn = document.querySelector('.gonogo-btn.selected');
-      const goNoGo = goNoGoBtn ? goNoGoBtn.dataset.gonogo : null;
-      const comments = document.getElementById('commentsInput').value;
-      S.scores[key] = { subScores, goNoGo, comments, updatedAt: Date.now() };
-      await sset(K.scores, S.scores);
+      await persistDraft(ev, s, draft);
       toast('Score saved');
+      S.currentStartupId = null;
+      draftScore = null;
       render();
     };
   }
