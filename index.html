@@ -100,6 +100,9 @@
   .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:600;}
   .pill-pending{background:var(--gold-soft);color:var(--gold);}
   .pill-done{background:var(--accent-soft);color:var(--accent);}
+  .tab-pill{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:100px;font-size:12.5px;font-weight:600;color:var(--muted);}
+  .tab-pill:hover{border-color:var(--accent);}
+  .tab-pill.active{background:var(--ost-navy);border-color:var(--ost-navy);color:#fff;}
   .empty{border:1px dashed var(--line);border-radius:12px;padding:36px;text-align:center;color:var(--muted);font-size:13.5px;}
 
   /* ---------- upload ---------- */
@@ -254,7 +257,8 @@ const K = {
   evaluators: 'evaluators',
   scores: 'scores',
   criteria: 'criteria',
-  adminCode: 'admin_code'
+  adminCode: 'admin_code',
+  resources: 'resources'
 };
 
 async function sget(key, fallback){
@@ -640,8 +644,12 @@ let S = {
   startups: [],
   evaluators: [],
   scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
+  resources: [],         // admin-posted reference docs/links shown on the evaluator home page
   currentStartupId: null,
   scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
+  evaluatorHome: true,   // true = show the evaluator landing dashboard first, false = show their assigned list
+  evalTrackFilter: 'all',// 'all' | 'pre-seed' | 'seed'
+  evalTypeFilter: 'all', // 'all' | 'deeptech' | 'tech-enabled'
   csvPreview: null,      // rows parsed but not yet saved
   loading: true
 };
@@ -666,6 +674,7 @@ async function loadAll(){
   S.startups = await sget(K.startups, []);
   S.evaluators = await sget(K.evaluators, []);
   S.scores = await sget(K.scores, {});
+  S.resources = await sget(K.resources, []);
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
     S.adminCodeExists = true;
@@ -839,7 +848,7 @@ const OST_LOGO_MARK = `<svg class="brand-mark" viewBox="0 0 512 487" xmlns="http
 function topbar(rightHtml){
   return `
   <div class="topbar">
-    <div class="brand">
+    <div class="brand" id="brandHome" style="cursor:pointer;">
       ${OST_LOGO_MARK}
       <div>
         <div class="brand-name">Open Startup</div>
@@ -958,11 +967,13 @@ function renderAdminShell(){
     <button class="tab ${S.adminTab==='startups'?'active':''}" data-tab="startups">Startups</button>
     <button class="tab ${S.adminTab==='evaluators'?'active':''}" data-tab="evaluators">Evaluators</button>
     <button class="tab ${S.adminTab==='results'?'active':''}" data-tab="results">Results</button>
+    <button class="tab ${S.adminTab==='resources'?'active':''}" data-tab="resources">Resources</button>
   </div>
   <div class="content">
     ${S.adminTab==='startups' ? renderAdminStartups() : ''}
     ${S.adminTab==='evaluators' ? renderAdminEvaluators() : ''}
     ${S.adminTab==='results' ? renderAdminResults() : ''}
+    ${S.adminTab==='resources' ? renderAdminResources() : ''}
   </div>
   <div class="toast" id="toast"></div>`;
 }
@@ -975,6 +986,68 @@ function attachAdminShell(){
   if(S.adminTab==='startups') attachAdminStartups();
   if(S.adminTab==='evaluators') attachAdminEvaluators();
   if(S.adminTab==='results') attachAdminResults();
+  if(S.adminTab==='resources') attachAdminResources();
+}
+
+/* ---- Admin: Resources tab (shown on the evaluator home page) ---- */
+function renderAdminResources(){
+  return `
+  <div class="row-between" style="margin-bottom:18px;">
+    <div>
+      <div class="section-title">Resources</div>
+      <p class="section-sub" style="margin-bottom:0;">Shown to every evaluator on their home page (grading scale reference, guidelines, links)</p>
+    </div>
+    <button class="btn btn-primary" id="addResourceBtn">+ Add resource</button>
+  </div>
+  <div id="addResourceForm"></div>
+  ${S.resources.length===0 ? `<div class="empty">No resources added yet.</div>` : `
+  <div class="startup-list">
+    ${S.resources.map(r=>`
+      <div class="card" style="max-width:none;padding:16px 20px;">
+        <div class="row-between">
+          <div>
+            <div style="font-weight:600;font-size:14px;">${esc(r.title)}</div>
+            ${r.link ? `<div class="su-meta">${asLink(r.link)}</div>` : ''}
+            ${r.body ? `<div class="su-meta" style="margin-top:4px;">${esc(r.body)}</div>` : ''}
+          </div>
+          <button class="icon-btn" data-delete-resource="${r.id}">Delete</button>
+        </div>
+      </div>
+    `).join('')}
+  </div>`}`;
+}
+
+function attachAdminResources(){
+  document.getElementById('addResourceBtn').onclick = ()=>{
+    const holder = document.getElementById('addResourceForm');
+    holder.innerHTML = `
+      <div class="card" style="max-width:480px;margin-bottom:20px;">
+        <div class="field"><label>Title</label><input id="newResTitle" placeholder="e.g. Grading Scale Explained"/></div>
+        <div class="field"><label>Link (optional)</label><input id="newResLink" placeholder="https://..."/></div>
+        <div class="field"><label>Text (optional)</label><textarea id="newResBody" rows="4" placeholder="Any additional notes or instructions"></textarea></div>
+        <div class="row"><button class="btn btn-primary" id="saveNewRes">Add</button><button class="btn btn-ghost" id="cancelNewRes">Cancel</button></div>
+      </div>`;
+    document.getElementById('cancelNewRes').onclick = ()=>{ holder.innerHTML=''; };
+    document.getElementById('saveNewRes').onclick = async ()=>{
+      const title = document.getElementById('newResTitle').value.trim();
+      const link = document.getElementById('newResLink').value.trim();
+      const body = document.getElementById('newResBody').value.trim();
+      if(!title){ toast('Title is required'); return; }
+      S.resources.push({ id: uid('res'), title, link, body });
+      await sset(K.resources, S.resources);
+      holder.innerHTML = '';
+      toast('Resource added');
+      render();
+    };
+  };
+  document.querySelectorAll('[data-delete-resource]').forEach(b=>{
+    b.onclick = async ()=>{
+      if(!confirm('Delete this resource?')) return;
+      S.resources = S.resources.filter(r=>r.id!==b.dataset.deleteResource);
+      await sset(K.resources, S.resources);
+      render();
+    };
+  });
 }
 
 /* ---- Admin: Startups tab ---- */
@@ -982,15 +1055,21 @@ function renderAdminStartups(){
   if(S.csvPreview){
     return `
     <div class="section-title">Review before saving</div>
-    <p class="section-sub">${S.csvPreview.length} rows parsed from your file. Type was auto-guessed (Deeptech vs Tech-enabled), double check and adjust before saving.</p>
+    <p class="section-sub">${S.csvPreview.length} rows parsed from your file. Type was auto-guessed (Deeptech vs Tech-enabled), double check and adjust before saving. Track defaults to Pre-Seed, change it if this batch is Seed.</p>
     <div class="table-wrap" style="margin-bottom:16px;">
       <table>
-        <thead><tr><th>Name</th><th>Sector</th><th>Type</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
         <tbody>
           ${S.csvPreview.map((r,i)=>`
             <tr>
               <td><input data-i="${i}" data-f="name" value="${escAttr(r.name)}" style="width:140px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
               <td><input data-i="${i}" data-f="sector" value="${escAttr(r.sector)}" style="width:100px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;"/></td>
+              <td>
+                <select data-i="${i}" data-f="track" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
+                  <option value="pre-seed" ${r.track==='pre-seed'?'selected':''}>Pre-Seed</option>
+                  <option value="seed" ${r.track==='seed'?'selected':''}>Seed</option>
+                </select>
+              </td>
               <td>
                 <select data-i="${i}" data-f="type" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
                   <option value="tech-enabled" ${r.type==='tech-enabled'?'selected':''}>Tech-enabled</option>
@@ -1010,25 +1089,50 @@ function renderAdminStartups(){
     </div>`;
   }
 
+  const trackTab = S.adminStartupTrackFilter || 'all';
+  const typeTab = S.adminStartupTypeFilter || 'all';
+  const visibleStartups = S.startups.filter(s=>
+    (trackTab==='all' || s.track===trackTab) && (typeTab==='all' || s.type===typeTab)
+  );
+
   return `
-  <div class="row-between" style="margin-bottom:18px;">
+  <div class="row-between" style="margin-bottom:14px;">
     <div>
       <div class="section-title">Startups</div>
-      <p class="section-sub" style="margin-bottom:0;">${S.startups.length} in the pipeline &middot; Pre-Seed track</p>
+      <p class="section-sub" style="margin-bottom:0;">${visibleStartups.length} of ${S.startups.length} shown</p>
     </div>
     <label class="btn btn-primary" for="csvInput">Upload F6S export</label>
     <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
   </div>
 
-  ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : `
+  <div class="row" style="gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <div class="row" style="gap:6px;">
+      <button class="tab-pill ${trackTab==='all'?'active':''}" data-track-filter="all">All tracks</button>
+      <button class="tab-pill ${trackTab==='pre-seed'?'active':''}" data-track-filter="pre-seed">Pre-Seed</button>
+      <button class="tab-pill ${trackTab==='seed'?'active':''}" data-track-filter="seed">Seed</button>
+    </div>
+    <div class="row" style="gap:6px;">
+      <button class="tab-pill ${typeTab==='all'?'active':''}" data-type-filter="all">All types</button>
+      <button class="tab-pill ${typeTab==='deeptech'?'active':''}" data-type-filter="deeptech">Deeptech</button>
+      <button class="tab-pill ${typeTab==='tech-enabled'?'active':''}" data-type-filter="tech-enabled">Tech-enabled</button>
+    </div>
+  </div>
+
+  ${S.startups.length === 0 ? `<div class="empty">No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : (visibleStartups.length===0 ? `<div class="empty">No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Sector</th><th>Type</th><th>Country</th><th>Memo</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Memo</th><th></th></tr></thead>
       <tbody>
-        ${S.startups.map(s=>`
+        ${visibleStartups.map(s=>`
           <tr>
             <td><b>${esc(s.name)}</b><div class="su-meta">${esc(s.oneLiner||'')}</div></td>
             <td>${esc(s.sector||'—')}</td>
+            <td>
+              <select data-set-track="${s.id}" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
+                <option value="pre-seed" ${(s.track||'pre-seed')==='pre-seed'?'selected':''}>Pre-Seed</option>
+                <option value="seed" ${s.track==='seed'?'selected':''}>Seed</option>
+              </select>
+            </td>
             <td>
               <select data-set-type="${s.id}" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;">
                 <option value="tech-enabled" ${s.type==='tech-enabled'?'selected':''}>Tech-enabled</option>
@@ -1044,12 +1148,18 @@ function renderAdminStartups(){
           </tr>`).join('')}
       </tbody>
     </table>
-  </div>`}
+  </div>`)}
 
   <div id="memoEditor"></div>`;
 }
 
 function attachAdminStartups(){
+  document.querySelectorAll('[data-track-filter]').forEach(b=>{
+    b.onclick = ()=>{ S.adminStartupTrackFilter = b.dataset.trackFilter; render(); };
+  });
+  document.querySelectorAll('[data-type-filter]').forEach(b=>{
+    b.onclick = ()=>{ S.adminStartupTypeFilter = b.dataset.typeFilter; render(); };
+  });
   const csvInput = document.getElementById('csvInput');
   if(csvInput){
     csvInput.onchange = (e)=>{
@@ -1141,6 +1251,14 @@ function attachAdminStartups(){
       startup.type = sel.value;
       await sset(K.startups, S.startups);
       toast('Type updated');
+    };
+  });
+  document.querySelectorAll('[data-set-track]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const startup = S.startups.find(s=>s.id===sel.dataset.setTrack);
+      startup.track = sel.value;
+      await sset(K.startups, S.startups);
+      toast('Track updated');
     };
   });
   document.querySelectorAll('[data-remove]').forEach(b=>{
@@ -1400,6 +1518,7 @@ function attachEvalLogin(){
     S.evaluator = ev;
     S.view = 'evaluator';
     S.currentStartupId = null;
+    S.evaluatorHome = true;
     render();
   };
 }
@@ -1417,13 +1536,92 @@ function renderEvaluatorShell(){
   if(S.currentStartupId){
     return renderEvaluatorDetail();
   }
+  if(S.evaluatorHome){
+    return renderEvaluatorHome();
+  }
+  return renderEvaluatorList();
+}
+
+function rubricOverviewHtml(type){
+  const rubric = RUBRICS['pre-seed:'+type];
+  if(!rubric) return '';
+  return `
+    <details style="margin-bottom:10px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:13.5px;padding:8px 0;">${type==='deeptech'?'Deeptech':'Tech-enabled'} rubric structure</summary>
+      <div class="kv" style="margin-top:8px;">
+        ${rubric.map(cat=>`
+          <div>${esc(cat.label)}</div>
+          <div>${cat.subcriteria.map(sub=>esc(sub.label)+' ('+sub.maxPoints+' pts)').join(', ')} — <b>${cat.maxPoints} pts total</b></div>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function renderEvaluatorHome(){
+  const ev = S.evaluator;
   const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
+  const scoredCount = assigned.filter(s=>S.scores[ev.id+'::'+s.id]).length;
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
   <div class="content">
+    <div class="section-title">Welcome, ${esc(ev.name)}</div>
+    <p class="section-sub">You have ${assigned.length} startups assigned, ${scoredCount} scored so far.</p>
+
+    <div class="card" style="max-width:none;padding:22px 24px;margin-bottom:20px;">
+      <h3 style="margin-top:0;font-size:15px;">How scoring works</h3>
+      <p class="su-meta" style="margin-bottom:14px;">Each startup is scored out of 100 across 5 categories (Team, Traction, Solution, Fundraising, Market Fit), plus a final Go/No-Go call. You'll go through one category at a time, with the founder's actual application answers shown alongside each category so you can grade with full context.</p>
+      ${rubricOverviewHtml('tech-enabled')}
+      ${rubricOverviewHtml('deeptech')}
+    </div>
+
+    ${S.resources.length ? `
+    <div class="card" style="max-width:none;padding:22px 24px;margin-bottom:20px;">
+      <h3 style="margin-top:0;font-size:15px;">Resources from the team</h3>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        ${S.resources.map(r=>`
+          <div>
+            <div style="font-weight:600;font-size:13.5px;">${esc(r.title)}</div>
+            <div class="memo-text" style="font-size:13.5px;">${r.link ? asLink(r.link) : ''}${r.link && r.body ? '<br>' : ''}${esc(r.body||'')}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>` : ''}
+
+    <button class="btn btn-primary" id="goToList">View my assigned startups &rarr;</button>
+  </div>
+  <div class="toast" id="toast"></div>`;
+}
+
+function renderEvaluatorList(){
+  const ev = S.evaluator;
+  const allAssigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
+  const trackTab = S.evalTrackFilter || 'all';
+  const typeTab = S.evalTypeFilter || 'all';
+  const assigned = allAssigned.filter(s=>
+    (trackTab==='all' || (s.track||'pre-seed')===trackTab) && (typeTab==='all' || s.type===typeTab)
+  );
+  return `
+  ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  <div class="content">
+    <button class="back-link back-row" id="backHomeFromList">&larr; Home</button>
     <div class="section-title">Your assigned startups</div>
-    <p class="section-sub">${assigned.length} startups to review</p>
-    ${assigned.length===0 ? `<div class="empty">No startups have been assigned to you yet. Check with the admin.</div>` : `
+    <p class="section-sub">${assigned.length} of ${allAssigned.length} shown</p>
+
+    <div class="row" style="gap:16px;margin-bottom:18px;flex-wrap:wrap;">
+      <div class="row" style="gap:6px;">
+        <button class="tab-pill ${trackTab==='all'?'active':''}" data-eval-track-filter="all">All tracks</button>
+        <button class="tab-pill ${trackTab==='pre-seed'?'active':''}" data-eval-track-filter="pre-seed">Pre-Seed</button>
+        <button class="tab-pill ${trackTab==='seed'?'active':''}" data-eval-track-filter="seed">Seed</button>
+      </div>
+      <div class="row" style="gap:6px;">
+        <button class="tab-pill ${typeTab==='all'?'active':''}" data-eval-type-filter="all">All types</button>
+        <button class="tab-pill ${typeTab==='deeptech'?'active':''}" data-eval-type-filter="deeptech">Deeptech</button>
+        <button class="tab-pill ${typeTab==='tech-enabled'?'active':''}" data-eval-type-filter="tech-enabled">Tech-enabled</button>
+      </div>
+    </div>
+
+    ${allAssigned.length===0 ? `<div class="empty">No startups have been assigned to you yet. Check with the admin.</div>` : (assigned.length===0 ? `<div class="empty">No startups match this filter.</div>` : `
     <div class="startup-list">
       ${assigned.map(s=>{
         const own = S.scores[ev.id+'::'+s.id];
@@ -1442,19 +1640,29 @@ function renderEvaluatorShell(){
             <div class="gauge" style="border-color:${g.border};color:${g.text};">${ownTotal===null?'—':ownTotal}</div>
             <div>
               <div class="su-name">${esc(s.name)}</div>
-              <div class="su-meta">${esc(s.sector||'')}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}${s.country?' &middot; '+esc(s.country):''}</div>
+              <div class="su-meta">${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}${s.country?' &middot; '+esc(s.country):''}</div>
             </div>
           </div>
           <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
         </div>`;
       }).join('')}
-    </div>`}
+    </div>`)}
   </div>
   <div class="toast" id="toast"></div>`;
 }
 
 function attachEvaluatorShell(){
   document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; render(); };
+  const goToListBtn = document.getElementById('goToList');
+  if(goToListBtn) goToListBtn.onclick = ()=>{ S.evaluatorHome = false; render(); };
+  const backHomeBtn = document.getElementById('backHomeFromList');
+  if(backHomeBtn) backHomeBtn.onclick = ()=>{ S.evaluatorHome = true; render(); };
+  document.querySelectorAll('[data-eval-track-filter]').forEach(b=>{
+    b.onclick = ()=>{ S.evalTrackFilter = b.dataset.evalTrackFilter; render(); };
+  });
+  document.querySelectorAll('[data-eval-type-filter]').forEach(b=>{
+    b.onclick = ()=>{ S.evalTypeFilter = b.dataset.evalTypeFilter; render(); };
+  });
   document.querySelectorAll('[data-open]').forEach(card=>{
     card.onclick = ()=>{ S.currentStartupId = card.dataset.open; S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null; render(); };
   });
@@ -1489,17 +1697,28 @@ async function persistDraft(ev, s, draft){
   await sset(K.scores, S.scores);
 }
 
+// Small debounce so we don't write to Firestore on every keystroke in the comments box
+let _commentsAutosaveTimer = null;
+function debounceAutosave(ev, s, draft){
+  clearTimeout(_commentsAutosaveTimer);
+  _commentsAutosaveTimer = setTimeout(()=>{ persistDraft(ev, s, draft); }, 1000);
+}
+
 function renderEvaluatorDetail(){
   const ev = S.evaluator;
   const s = S.startups.find(x=>x.id===S.currentStartupId);
   const rubric = getRubric(s);
 
   if(!rubric){
+    const track = s.track || 'pre-seed';
+    const msg = !s.type
+      ? "This startup doesn't have a Type set yet, so the right scoring rubric can't be loaded. Ask the admin to set its Type (Deeptech or Tech-enabled) in the Startups tab."
+      : `The ${track === 'seed' ? 'Seed' : track} rubric for ${s.type === 'deeptech' ? 'Deeptech' : 'Tech-enabled'} startups isn't set up in the platform yet.`;
     return `
     ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
     <div class="content">
       <button class="back-link back-row" id="backList">&larr; Back to your list</button>
-      <div class="type-warning">This startup doesn't have a Track/Type set yet, so the right scoring rubric can't be loaded. Ask the admin to set its Type (Deeptech or Tech-enabled) in the Startups tab.</div>
+      <div class="type-warning">${esc(msg)}</div>
     </div>
     <div class="toast" id="toast"></div>`;
   }
@@ -1569,8 +1788,8 @@ function renderEvaluatorDetail(){
         <div class="panel-left">
           <h3 style="margin-top:0;">${esc(currentCat.label)}</h3>
           <div class="rubric-total-bar">
-            <span class="label">Category score</span>
-            <span class="value" id="catSubtotal">${categorySubtotal(currentCat, draft)} / ${currentCat.maxPoints}</span>
+            <span><span class="label">Category</span> <span class="value" id="catSubtotal">${categorySubtotal(currentCat, draft)}/${currentCat.maxPoints}</span></span>
+            <span><span class="label">Overall so far</span> <span class="value" id="overallSubtotal">${rubric.reduce((sum,c)=>sum+categorySubtotal(c,draft),0)}/${rubricMaxTotal(rubric)}</span></span>
           </div>
           ${currentCat.subcriteria.map(sub => {
             const scored = draft.subScores[sub.key] !== undefined;
@@ -1697,6 +1916,7 @@ function attachEvaluatorDetailListeners(){
     btn.onclick = ()=>{
       const subkey = btn.dataset.sub;
       draft.subScores[subkey] = +btn.dataset.points;
+      persistDraft(ev, s, draft); // autosave immediately, don't wait for step navigation
       const currentCat = rubric[S.scoringStep];
       const idx = currentCat.subcriteria.findIndex(sub=>sub.key===subkey);
       const nextUnscored = currentCat.subcriteria.find((sub,i)=> i>idx && draft.subScores[sub.key]===undefined)
@@ -1715,12 +1935,16 @@ function attachEvaluatorDetailListeners(){
       draft.goNoGo = btn.dataset.gonogo;
       document.querySelectorAll('.gonogo-btn').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
+      persistDraft(ev, s, draft); // autosave immediately
     };
   });
 
   const commentsInput = document.getElementById('commentsInput');
   if(commentsInput){
-    commentsInput.oninput = ()=>{ draft.comments = commentsInput.value; };
+    commentsInput.oninput = ()=>{
+      draft.comments = commentsInput.value;
+      debounceAutosave(ev, s, draft); // autosave shortly after typing pauses
+    };
   }
 
   const saveBtn = document.getElementById('saveScoreBtn');
@@ -1826,6 +2050,27 @@ function categoryEvidenceHtml(catId, s){
 
   return '';
 }
+
+/* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
+document.addEventListener('click', (e)=>{
+  const brandEl = e.target.closest('#brandHome');
+  if(!brandEl) return;
+  if(S.evaluator){
+    S.view = 'evaluator';
+    S.currentStartupId = null;
+    S.evaluatorHome = true;
+    draftScore = null;
+    render();
+  } else if(S.adminAuthed){
+    S.view = 'admin';
+    S.adminTab = 'startups';
+    S.csvPreview = null;
+    render();
+  } else {
+    S.view = 'landing';
+    render();
+  }
+});
 
 /* ============ INIT ============ */
 loadAll();
