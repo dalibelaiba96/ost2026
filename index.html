@@ -88,6 +88,9 @@
   .btn-primary:active{transform:translateY(0);}
   .btn-primary:disabled{background:#B9C4BE;cursor:not-allowed;transform:none;box-shadow:none;}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn-navy{background:var(--ost-navy);color:#fff;box-shadow:var(--shadow-xs);}
+  .btn-navy:hover{background:var(--ost-dark-navy);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+  .btn-navy:active{transform:translateY(0);}
   .btn-ghost:hover{border-color:var(--ink);background:var(--ost-off-white);}
   .btn-block{width:100%;}
   .role-pick{display:flex;flex-direction:column;gap:12px;}
@@ -1559,9 +1562,9 @@ function renderAdminStartups(){
     </div>
     <div class="row" style="gap:8px;">
       ${selected.length ? `<button class="btn btn-ghost" id="deleteSelectedBtn" style="color:var(--danger);border-color:var(--danger-soft);"><i class="ph ph-trash"></i> Delete selected (${selected.length})</button>` : ''}
-      <label class="btn btn-ghost" for="csvInputPreSeed"><i class="ph ph-upload-simple"></i> Upload Pre-Seed CSV</label>
+      <label class="btn btn-navy" for="csvInputPreSeed"><i class="ph ph-upload-simple"></i> Upload Pre-Seed CSV</label>
       <input type="file" id="csvInputPreSeed" data-track="pre-seed" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
-      <label class="btn btn-ghost" for="csvInputSeed"><i class="ph ph-upload-simple"></i> Upload Seed CSV</label>
+      <label class="btn btn-navy" for="csvInputSeed"><i class="ph ph-upload-simple"></i> Upload Seed CSV</label>
       <input type="file" id="csvInputSeed" data-track="seed" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
     </div>
   </div>
