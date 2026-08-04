@@ -297,6 +297,13 @@ const COLLECTION = 'dealroom';           // small shared settings: evaluators, a
 const STARTUPS_COLLECTION = 'dealroom_startups'; // one Firestore document PER startup (avoids the 1MB/doc limit)
 const SCORES_COLLECTION = 'dealroom_scores';     // one Firestore document PER evaluator+startup score
 
+// Proxies F6S file links through a small Cloudflare Worker so they can be embedded in an
+// iframe (F6S blocks direct cross-origin framing, but allows normal server-to-server fetches).
+const DECK_PROXY_BASE = 'https://osteval.dali-belaiba.workers.dev';
+function proxiedDeckUrl(rawUrl){
+  return DECK_PROXY_BASE + '/?url=' + encodeURIComponent(rawUrl);
+}
+
 /* ============ STORAGE HELPERS (backed by Firestore) ============ */
 const K = {
   startups: 'startups',
@@ -2191,7 +2198,7 @@ function renderEvaluatorDetail(){
       <div class="startup-header-actions">
         ${s.website ? `<a class="header-action-btn" href="${escAttr(s.website)}" target="_blank" rel="noopener"><i class="ph ph-globe"></i> Website</a>` : ''}
         ${deckUrl ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(deckUrl)}"><i class="ph ph-file-text"></i> View deck</button>`
-                   : (s.decks ? `<button class="header-action-btn primary" data-deck-preview="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'')}" data-prefer-viewer="1"><i class="ph ph-file-text"></i> View deck</button>` : '')}
+                   : (s.decks ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(proxiedDeckUrl((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||''))}"><i class="ph ph-file-text"></i> View deck</button>` : '')}
       </div>
     </div>`;
 
@@ -2436,10 +2443,9 @@ function deckDisplayHtml(s){
   if(s.decks){
     const m = String(s.decks).match(/(https?:\/\/\S+)/);
     if(m){
-      // F6S blocks direct iframe embedding, but the file itself downloads fine, so route
-      // through the preview modal defaulting to Google's viewer, which fetches it
-      // server-side and isn't subject to F6S's anti-framing restriction.
-      return `<a href="${escAttr(m[1])}" data-deck-preview="${escAttr(m[1])}" data-prefer-viewer="1" rel="noopener">F6S deck link <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
+      // F6S blocks direct cross-origin iframe embedding; route through our proxy Worker,
+      // which fetches the file server-side (not subject to that restriction) and serves it back.
+      return `<a href="${escAttr(m[1])}" data-deck-preview="${escAttr(proxiedDeckUrl(m[1]))}" rel="noopener">F6S deck link <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
     }
     return esc(s.decks);
   }
