@@ -127,8 +127,8 @@
   .deck-modal-backdrop{position:fixed;inset:0;background:rgba(9,15,30,0.65);display:flex;align-items:center;justify-content:center;z-index:300;padding:24px;animation:fadeSlideIn var(--t-base) var(--ease);}
   .deck-modal{background:#fff;border-radius:var(--radius-lg);width:min(1000px, 100%);height:min(85vh, 900px);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-md);}
   .deck-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px;background:var(--ost-off-white);}
-  .deck-modal iframe{flex:1;border:none;width:100%;background:#F5F5F5;}
-  [data-deck-preview]{cursor:pointer;}
+
+
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--ost-off-white);position:sticky;top:0;z-index:2;}
@@ -266,10 +266,6 @@
     .startup-header-info h2{font-size:16px;white-space:normal;}
     .startup-header-actions{width:100%;order:3;}
     .header-action-btn{flex:1;justify-content:center;}
-    .deck-modal-backdrop{padding:0;}
-    .deck-modal{width:100%;height:100%;border-radius:0;}
-    .deck-modal-head .btn-label, .deck-modal-head .deck-modal-title-text{display:none;}
-    .deck-modal-head{padding:10px 12px;}
   }
 </style>
 </head>
@@ -296,13 +292,6 @@ const db = getFirestore(firebaseApp);
 const COLLECTION = 'dealroom';           // small shared settings: evaluators, admin code, resources
 const STARTUPS_COLLECTION = 'dealroom_startups'; // one Firestore document PER startup (avoids the 1MB/doc limit)
 const SCORES_COLLECTION = 'dealroom_scores';     // one Firestore document PER evaluator+startup score
-
-// Proxies F6S file links through a small Cloudflare Worker so they can be embedded in an
-// iframe (F6S blocks direct cross-origin framing, but allows normal server-to-server fetches).
-const DECK_PROXY_BASE = 'https://osteval.dali-belaiba.workers.dev';
-function proxiedDeckUrl(rawUrl){
-  return DECK_PROXY_BASE + '/?url=' + encodeURIComponent(rawUrl);
-}
 
 /* ============ STORAGE HELPERS (backed by Firestore) ============ */
 const K = {
@@ -2197,8 +2186,8 @@ function renderEvaluatorDetail(){
       </div>
       <div class="startup-header-actions">
         ${s.website ? `<a class="header-action-btn" href="${escAttr(s.website)}" target="_blank" rel="noopener"><i class="ph ph-globe"></i> Website</a>` : ''}
-        ${deckUrl ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(deckUrl)}"><i class="ph ph-file-text"></i> View deck</button>`
-                   : (s.decks ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(proxiedDeckUrl((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||''))}"><i class="ph ph-file-text"></i> View deck</button>` : '')}
+        ${deckUrl ? `<a class="header-action-btn primary" href="${escAttr(deckUrl)}" target="_blank" rel="noopener"><i class="ph ph-file-text"></i> Open deck</a>`
+                   : (s.decks ? `<a class="header-action-btn primary" href="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'')}" target="_blank" rel="noopener"><i class="ph ph-download-simple"></i> Download deck</a>` : '')}
       </div>
     </div>`;
 
@@ -2434,62 +2423,25 @@ function asLink(value){
   return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${esc(value)}</a>`;
 }
 
-// Prefer an admin-provided re-hosted deck link (previewable) over the raw F6S link
-// (which requires an F6S login and won't preview for evaluators).
+// Prefer an admin-provided re-hosted deck link over the raw F6S link, but either way
+// this just opens/downloads normally, no in-app preview (F6S actively blocks automated
+// access with CAPTCHA challenges, so a reliable in-app preview isn't achievable).
 function deckDisplayHtml(s){
   if(s.deckOverride){
-    return `<a href="${escAttr(s.deckOverride)}" data-deck-preview="${escAttr(s.deckOverride)}" rel="noopener">Open deck <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
+    return `<a href="${escAttr(s.deckOverride)}" target="_blank" rel="noopener">Open deck <i class="ph ph-arrow-square-out" style="font-size:12px;"></i></a>`;
   }
   if(s.decks){
     const m = String(s.decks).match(/(https?:\/\/\S+)/);
     if(m){
-      // F6S blocks direct cross-origin iframe embedding; route through our proxy Worker,
-      // which fetches the file server-side (not subject to that restriction) and serves it back.
-      return `<a href="${escAttr(m[1])}" data-deck-preview="${escAttr(proxiedDeckUrl(m[1]))}" rel="noopener">F6S deck link <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
+      return `<a href="${escAttr(m[1])}" target="_blank" rel="noopener">Download deck <i class="ph ph-download-simple" style="font-size:12px;"></i></a>`;
     }
     return esc(s.decks);
   }
   return null;
 }
 
-function openDeckPreview(url, preferViewer){
-  let root = document.getElementById('deckModalRoot');
-  if(!root){
-    root = document.createElement('div');
-    root.id = 'deckModalRoot';
-    document.body.appendChild(root);
-  }
-  const viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(url);
-  const startSrc = preferViewer ? viewerUrl : url;
-  root.innerHTML = `
-    <div class="deck-modal-backdrop" id="deckModalBackdrop">
-      <div class="deck-modal">
-        <div class="deck-modal-head">
-          <span><i class="ph ph-file-text"></i> <span class="deck-modal-title-text">Pitch deck preview</span></span>
-          <div class="row" style="gap:6px;">
-            <button class="icon-btn" id="deckModalToggleView" title="Switch between the direct file and Google's viewer"><i class="ph ph-arrows-clockwise"></i> <span class="btn-label">Switch viewer</span></button>
-            <a class="icon-btn" href="${escAttr(url)}" target="_blank" rel="noopener" title="Open in new tab"><i class="ph ph-arrow-square-out"></i> <span class="btn-label">Open in new tab</span></a>
-            <button class="icon-btn" id="deckModalClose"><i class="ph ph-x"></i></button>
-          </div>
-        </div>
-        <iframe id="deckModalFrame" src="${escAttr(startSrc)}"></iframe>
-      </div>
-    </div>`;
-  document.getElementById('deckModalClose').onclick = closeDeckPreview;
-  document.getElementById('deckModalBackdrop').onclick = (e)=>{ if(e.target.id==='deckModalBackdrop') closeDeckPreview(); };
-  let usingViewer = !!preferViewer;
-  document.getElementById('deckModalToggleView').onclick = ()=>{
-    usingViewer = !usingViewer;
-    document.getElementById('deckModalFrame').src = usingViewer ? viewerUrl : url;
-  };
-}
-function closeDeckPreview(){
-  const root = document.getElementById('deckModalRoot');
-  if(root) root.innerHTML = '';
-}
-
-// Same modal pattern as the deck preview, but with a form instead of an iframe — always
-// centered on screen regardless of scroll position, so it can't get lost below a long table.
+// A centered modal for editing the deck override link — always visible regardless of
+// scroll position, so it can't get lost below a long table.
 function openDeckLinkEditor(startup){
   let root = document.getElementById('deckModalRoot');
   if(!root){
@@ -2603,14 +2555,6 @@ function categoryEvidenceHtml(catId, s){
 
   return '';
 }
-
-/* ============ GLOBAL DECK PREVIEW (delegated, survives re-renders) ============ */
-document.addEventListener('click', (e)=>{
-  const deckEl = e.target.closest('[data-deck-preview]');
-  if(!deckEl) return;
-  e.preventDefault();
-  openDeckPreview(deckEl.dataset.deckPreview, deckEl.dataset.preferViewer === '1');
-});
 
 /* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
 document.addEventListener('click', (e)=>{
