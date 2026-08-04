@@ -2258,6 +2258,7 @@ function renderEvaluatorDetail(){
               <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
               <div>Country</div><div>${esc(s.country||'—')}</div>
               <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
+              <div>Pitch deck</div><div>${s.decks ? (linkFromMixedText(s.decks) || esc(s.decks)) : '—'}</div>
             </div>
           </div>
           <div class="info-block">
@@ -2273,7 +2274,7 @@ function renderEvaluatorDetail(){
           <div class="info-block">
             <h4>Resources</h4>
             <div class="kv">
-              ${s.decks ? `<div>Pitch deck</div><div>${esc(s.decks)}</div>` : ''}
+              ${s.decks ? `<div>Pitch deck</div><div>${linkFromMixedText(s.decks) || esc(s.decks)}</div>` : ''}
               ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
             </div>
           </div>` : ''}
@@ -2406,6 +2407,16 @@ function asLink(value){
   let href = String(value).trim();
   if(!/^https?:\/\//i.test(href)) href = 'https://' + href.replace(/^\/\//,'');
   return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${esc(value)}</a>`;
+}
+
+// F6S fields like "Decks" often look like "Company Deck - https://...", pull the URL out
+// so it renders as a real clickable link instead of plain unclickable text.
+function linkFromMixedText(value){
+  if(!value) return null;
+  const m = String(value).match(/(https?:\/\/\S+)/);
+  if(!m) return null;
+  const label = String(value).replace(m[1], '').replace(/[-–—:]\s*$/, '').trim() || 'Open link';
+  return `<a href="${escAttr(m[1])}" target="_blank" rel="noopener">${esc(label)}</a>`;
 }
 
 function categoryEvidenceHtml(catId, s){
