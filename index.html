@@ -235,7 +235,7 @@
 <script type="module">
 /* ============ FIREBASE / FIRESTORE SETUP ============ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -249,7 +249,9 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
-const COLLECTION = 'dealroom';
+const COLLECTION = 'dealroom';           // small shared settings: evaluators, admin code, resources
+const STARTUPS_COLLECTION = 'dealroom_startups'; // one Firestore document PER startup (avoids the 1MB/doc limit)
+const SCORES_COLLECTION = 'dealroom_scores';     // one Firestore document PER evaluator+startup score
 
 /* ============ STORAGE HELPERS (backed by Firestore) ============ */
 const K = {
@@ -274,6 +276,57 @@ async function sset(key, value){
     await setDoc(doc(db, COLLECTION, key), { json: JSON.stringify(value) });
     return true;
   }catch(e){ console.error('storage set failed', key, e); return false; }
+}
+
+// Per-document storage: each record (a startup, or a single evaluator's score on a startup)
+// gets its own Firestore document, so a large batch never risks hitting the 1MB per-document
+// limit the way one shared array-in-a-single-document would.
+async function docSave(collectionName, id, value){
+  try{
+    await setDoc(doc(db, collectionName, id), { json: JSON.stringify(value) });
+    return true;
+  }catch(e){ console.error('doc save failed', collectionName, id, e); return false; }
+}
+async function docDelete(collectionName, id){
+  try{
+    await deleteDoc(doc(db, collectionName, id));
+    return true;
+  }catch(e){ console.error('doc delete failed', collectionName, id, e); return false; }
+}
+// Returns { id: parsedValue } for every document in the collection
+async function docListAsMap(collectionName){
+  const out = {};
+  try{
+    const snap = await getDocs(collection(db, collectionName));
+    snap.forEach(d=>{
+      const data = d.data();
+      if(data && data.json){ try{ out[d.id] = JSON.parse(data.json); }catch(e){} }
+    });
+  }catch(e){ console.error('doc list failed', collectionName, e); }
+  return out;
+}
+
+// One-time migration: older data was saved as a single array/object blob under the old
+// COLLECTION keys. If the new per-document collections are empty but that old blob has
+// data, copy it over document-by-document so nothing already uploaded/scored is lost.
+async function migrateToPerDocumentStorageIfNeeded(){
+  try{
+    const existingStartups = await docListAsMap(STARTUPS_COLLECTION);
+    if(Object.keys(existingStartups).length === 0){
+      const oldStartups = await sget(K.startups, []);
+      if(oldStartups.length){
+        await Promise.all(oldStartups.map(su => docSave(STARTUPS_COLLECTION, su.id, su)));
+      }
+    }
+    const existingScores = await docListAsMap(SCORES_COLLECTION);
+    if(Object.keys(existingScores).length === 0){
+      const oldScores = await sget(K.scores, {});
+      const keys = Object.keys(oldScores);
+      if(keys.length){
+        await Promise.all(keys.map(k => docSave(SCORES_COLLECTION, k, oldScores[k])));
+      }
+    }
+  }catch(e){ console.error('migration failed', e); }
 }
 
 /* ============ SCORING RUBRICS ============ */
@@ -968,9 +1021,11 @@ function toast(msg){
 }
 
 async function loadAll(){
-  S.startups = await sget(K.startups, []);
+  await migrateToPerDocumentStorageIfNeeded();
+  const startupsMap = await docListAsMap(STARTUPS_COLLECTION);
+  S.startups = Object.values(startupsMap).sort((a,b)=> (a.name||'').localeCompare(b.name||''));
   S.evaluators = await sget(K.evaluators, []);
-  S.scores = await sget(K.scores, {});
+  S.scores = await docListAsMap(SCORES_COLLECTION);
   S.resources = await sget(K.resources, []);
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
@@ -1533,7 +1588,7 @@ function attachAdminStartups(){
     sel.onchange = async ()=>{
       const startup = S.startups.find(s=>s.id===sel.dataset.setType);
       startup.type = sel.value;
-      await sset(K.startups, S.startups);
+      await docSave(STARTUPS_COLLECTION, startup.id, startup);
       toast('Type updated');
     };
   });
@@ -1541,7 +1596,7 @@ function attachAdminStartups(){
     sel.onchange = async ()=>{
       const startup = S.startups.find(s=>s.id===sel.dataset.setTrack);
       startup.track = sel.value;
-      await sset(K.startups, S.startups);
+      await docSave(STARTUPS_COLLECTION, startup.id, startup);
       toast('Track updated');
     };
   });
@@ -1552,8 +1607,8 @@ function attachAdminStartups(){
   if(confirmBtn){
     confirmBtn.onclick = async ()=>{
       const newOnes = S.csvPreview.map(r => ({...r, id: uid('su'), memo:''}));
+      await Promise.all(newOnes.map(su => docSave(STARTUPS_COLLECTION, su.id, su)));
       S.startups = [...S.startups, ...newOnes];
-      await sset(K.startups, S.startups);
       S.csvPreview = null;
       toast('Startups saved');
       render();
@@ -1565,8 +1620,8 @@ function attachAdminStartups(){
   document.querySelectorAll('[data-delete-startup]').forEach(b=>{
     b.onclick = async ()=>{
       if(!confirm('Delete this startup? This will not delete existing scores.')) return;
+      await docDelete(STARTUPS_COLLECTION, b.dataset.deleteStartup);
       S.startups = S.startups.filter(s=>s.id !== b.dataset.deleteStartup);
-      await sset(K.startups, S.startups);
       render();
     };
   });
@@ -1588,7 +1643,7 @@ function attachAdminStartups(){
         </div>`;
       document.getElementById('saveMemo').onclick = async ()=>{
         startup.memo = document.getElementById('memoText').value;
-        await sset(K.startups, S.startups);
+        await docSave(STARTUPS_COLLECTION, startup.id, startup);
         toast('Memo saved');
         holder.innerHTML = '';
       };
@@ -1959,13 +2014,14 @@ function categorySubtotal(cat, draft){
 }
 
 async function persistDraft(ev, s, draft){
-  S.scores[draft._key] = {
+  const record = {
     subScores: { ...draft.subScores },
     goNoGo: draft.goNoGo,
     comments: draft.comments,
     updatedAt: Date.now()
   };
-  await sset(K.scores, S.scores);
+  S.scores[draft._key] = record;
+  await docSave(SCORES_COLLECTION, draft._key, record);
 }
 
 // Small debounce so we don't write to Firestore on every keystroke in the comments box
