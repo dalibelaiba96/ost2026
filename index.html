@@ -140,8 +140,9 @@
   .icon-btn.danger:hover{background:var(--danger-soft);color:var(--danger);}
   .icon-btn:hover{color:var(--danger);background:var(--danger-soft);}
   .startup-list{display:flex;flex-direction:column;gap:10px;}
-  .startup-card{display:flex;align-items:center;justify-content:space-between;gap:14px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:14px 16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
-  .startup-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+  .startup-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px;}
+  .startup-tile{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
+  .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
   .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
 
@@ -240,7 +241,7 @@
     .card{padding:24px 20px;}
     .center-screen{padding:16px;}
     .row-between{flex-wrap:wrap;gap:10px;}
-    .startup-card{flex-wrap:wrap;gap:10px;}
+    .startup-grid{grid-template-columns:1fr;gap:10px;}
     .kv{grid-template-columns:1fr;gap:2px 0;}
     .kv div:nth-child(odd){margin-top:8px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.3px;}
     .kv div:first-child{margin-top:0;}
@@ -2054,7 +2055,7 @@ function renderEvaluatorList(){
     </div>
 
     ${allAssigned.length===0 ? `<div class="empty"><i class="ph ph-tray"></i>No startups have been assigned to you yet. Check with the admin.</div>` : (assigned.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
-    <div class="startup-list">
+    <div class="startup-grid">
       ${assigned.map(s=>{
         const own = S.scores[ev.id+'::'+s.id];
         const rubric = getRubric(s);
@@ -2067,15 +2068,14 @@ function renderEvaluatorList(){
         const pct = ownTotal===null ? null : (ownTotal/maxTotal*100);
         const g = gaugeColor(pct);
         return `
-        <div class="startup-card" data-open="${s.id}">
-          <div class="row">
-            ${progressRing(pct, g, ownTotal===null?'—':ownTotal)}
-            <div>
-              <div class="su-name">${esc(s.name)}</div>
-              <div class="su-meta">${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}${s.country?' &middot; '+esc(s.country):''}</div>
-            </div>
+        <div class="startup-tile" data-open="${s.id}">
+          <div class="row-between" style="align-items:flex-start;">
+            ${progressRing(pct, g, ownTotal===null?'—':ownTotal, 40)}
+            <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
           </div>
-          <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
+          <div class="su-name" style="margin-top:10px;">${esc(s.name)}</div>
+          <div class="su-meta">${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}</div>
+          ${s.country ? `<div class="su-meta">${esc(s.country)}</div>` : ''}
         </div>`;
       }).join('')}
     </div>`)}
