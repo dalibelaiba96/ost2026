@@ -100,6 +100,17 @@
   .hero-circle.c1{width:420px;height:420px;top:-160px;left:-120px;}
   .hero-circle.c2{width:260px;height:260px;bottom:-100px;right:8%;border-color:rgba(92,212,94,0.18);}
   .hero-circle.c3{width:160px;height:160px;top:20%;right:-60px;}
+  .eval-hero{position:relative;overflow:hidden;background:var(--ost-off-white);border-bottom:1px solid var(--line);}
+  .eval-hero-inner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:32px 28px;max-width:1200px;margin:0 auto;}
+  .eval-hero-eyebrow{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--accent-dark);margin-bottom:4px;}
+  .eval-hero-inner h1{margin:0 0 6px;font-size:26px;}
+  .eval-hero-inner p{margin:0;color:var(--muted);font-size:13.5px;max-width:440px;}
+  .eval-hero-ring{flex-shrink:0;}
+  .eval-hero-ring .gauge-ring-label{font-size:15px;}
+  .scoring-overview-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));gap:14px;}
+  .scoring-overview-item{display:flex;align-items:flex-start;gap:10px;}
+  .scoring-overview-icon{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .scoring-overview-label{font-weight:600;font-size:13.5px;}
   .role-title{font-weight:600;font-size:14.5px;}
   .role-desc{font-size:12.5px;color:var(--muted);}
   .error-msg{color:var(--danger);font-size:12.5px;margin-top:8px;}
@@ -141,7 +152,9 @@
   .icon-btn:hover{color:var(--danger);background:var(--danger-soft);}
   .startup-list{display:flex;flex-direction:column;gap:10px;}
   .startup-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px;}
-  .startup-tile{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
+  .startup-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);animation:fadeSlideIn var(--t-base) var(--ease) backwards;}
+  .startup-tile.is-scored{border-left-color:var(--accent);}
+  .startup-tile.is-pending{border-left-color:var(--gold);}
   .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
   .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -206,11 +219,18 @@
   .header-action-btn:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px);box-shadow:var(--shadow-xs);}
   .header-action-btn.primary{background:var(--ost-navy);border-color:var(--ost-navy);color:#fff;}
   .header-action-btn.primary:hover{background:var(--accent-dark);border-color:var(--accent-dark);}
-  .stepper{display:flex;gap:6px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;}
-  .step-dot{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:11.5px;font-weight:600;color:var(--muted);min-width:84px;text-align:center;}
-  .step-dot.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
-  .step-dot.final.active{border-color:var(--ost-navy);background:#EDEEF2;color:var(--ost-navy);}
-  .step-dot .step-sub{font-family:'Graphik',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;font-size:12px;}
+  .stepper{display:flex;align-items:flex-start;padding:16px 28px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .step-item{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;min-width:96px;position:relative;cursor:pointer;}
+  .step-item:not(:last-child)::after{content:"";position:absolute;top:14px;left:calc(50% + 22px);width:calc(100% - 22px);height:2px;background:var(--line);z-index:0;}
+  .step-item.complete:not(:last-child)::after{background:var(--accent);}
+  .step-marker{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#fff;border:2px solid var(--line);color:var(--muted);position:relative;z-index:1;transition:all var(--t-fast) var(--ease);}
+  .step-item.complete .step-marker{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .step-item.active .step-marker{border-color:var(--ost-navy);color:var(--ost-navy);background:#fff;box-shadow:0 0 0 3px var(--accent-soft);}
+  .step-item.active.complete .step-marker{background:var(--ost-navy);border-color:var(--ost-navy);color:#fff;}
+  .step-label{display:flex;flex-direction:column;align-items:center;text-align:center;font-size:11px;font-weight:600;color:var(--muted);}
+  .step-item.active .step-label{color:var(--ink);}
+  .step-sub{font-family:'Graphik',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;font-size:10.5px;}
+
   .step-nav{display:flex;justify-content:space-between;gap:10px;margin-top:20px;}
   .step-nav .btn{flex:1;}
   .memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;}
@@ -266,6 +286,9 @@
     .startup-header-info h2{font-size:16px;white-space:normal;}
     .startup-header-actions{width:100%;order:3;}
     .header-action-btn{flex:1;justify-content:center;}
+    .eval-hero-inner{flex-direction:column;align-items:flex-start;padding:24px 16px;}
+    .eval-hero-inner h1{font-size:21px;}
+    .scoring-overview-grid{grid-template-columns:1fr 1fr;}
   }
 </style>
 </head>
@@ -1995,12 +2018,21 @@ function renderEvaluatorShell(){
   return renderEvaluatorList();
 }
 
-function rubricOverviewHtml(type){
-  const rubric = RUBRICS['pre-seed:'+type];
+const SCORING_OVERVIEW = [
+  {icon:'ph-users-three', label:'Team', desc:'Founders, composition, credentials'},
+  {icon:'ph-rocket-launch', label:'Traction', desc:'Progress, validation, revenue'},
+  {icon:'ph-lightbulb', label:'Solution', desc:'Problem, technology, differentiation'},
+  {icon:'ph-currency-circle-dollar', label:'Fundraising', desc:'Capital raised, ask clarity'},
+  {icon:'ph-globe-hemisphere-west', label:'Market Fit', desc:'Go-to-market, expansion plans'}
+];
+
+function rubricOverviewHtml(track, type){
+  const rubric = RUBRICS[track+':'+type];
   if(!rubric) return '';
+  const label = (track==='seed'?'Seed':'Pre-Seed') + ' — ' + (type==='deeptech'?'Deeptech':'Tech-enabled');
   return `
-    <details style="margin-bottom:10px;">
-      <summary style="cursor:pointer;font-weight:600;font-size:13.5px;padding:8px 0;">${type==='deeptech'?'Deeptech':'Tech-enabled'} rubric structure</summary>
+    <details style="margin-bottom:8px;">
+      <summary style="cursor:pointer;font-weight:600;font-size:13px;padding:6px 0;color:var(--muted);">${esc(label)} (${rubricMaxTotal(rubric)} pts)</summary>
       <div class="kv" style="margin-top:8px;">
         ${rubric.map(cat=>`
           <div>${esc(cat.label)}</div>
@@ -2015,21 +2047,50 @@ function renderEvaluatorHome(){
   const ev = S.evaluator;
   const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
   const scoredCount = assigned.filter(s=>S.scores[ev.id+'::'+s.id]).length;
+  const pct = assigned.length ? (scoredCount/assigned.length*100) : null;
+  const ringColor = pct===null ? {border:'var(--line)',text:'var(--muted)'} : gaugeColor(pct);
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  <div class="eval-hero">
+    <div class="hero-circle c1" style="border-color:rgba(10,25,61,0.06);"></div>
+    <div class="hero-circle c2" style="border-color:rgba(92,212,94,0.14);"></div>
+    <div class="hero-circle c3" style="border-color:rgba(10,25,61,0.06);"></div>
+    <div class="eval-hero-inner">
+      <div>
+        <div class="eval-hero-eyebrow">Welcome back</div>
+        <h1>${esc(ev.name)}</h1>
+        <p>${assigned.length===0 ? "You don't have any startups assigned yet." : scoredCount===assigned.length ? "You're all caught up, every assigned startup is scored." : `${assigned.length - scoredCount} of ${assigned.length} still need your score.`}</p>
+      </div>
+      ${assigned.length ? `
+      <div class="eval-hero-ring">
+        ${progressRing(pct, ringColor, scoredCount+'/'+assigned.length, 84)}
+      </div>` : ''}
+    </div>
+  </div>
   <div class="content">
-    <div class="section-title">Welcome, ${esc(ev.name)}</div>
-    <p class="section-sub">You have ${assigned.length} startups assigned, ${scoredCount} scored so far.</p>
-
-    <div class="card" style="max-width:none;padding:22px 24px;margin-bottom:20px;">
+    <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
       <h3 style="margin-top:0;font-size:15px;">How scoring works</h3>
-      <p class="su-meta" style="margin-bottom:14px;">Each startup is scored out of 100 across 5 categories (Team, Traction, Solution, Fundraising, Market Fit), plus a final Go/No-Go call. You'll go through one category at a time, with the founder's actual application answers shown alongside each category so you can grade with full context.</p>
-      ${rubricOverviewHtml('tech-enabled')}
-      ${rubricOverviewHtml('deeptech')}
+      <p class="su-meta" style="margin-bottom:16px;">Every startup is scored out of 100 points, one category at a time, plus a final Go/No-Go call. The founder's actual application answers show up right alongside each category, so you always have full context.</p>
+      <div class="scoring-overview-grid">
+        ${SCORING_OVERVIEW.map(c=>`
+          <div class="scoring-overview-item">
+            <div class="scoring-overview-icon"><i class="ph-fill ${c.icon}"></i></div>
+            <div>
+              <div class="scoring-overview-label">${esc(c.label)}</div>
+              <div class="su-meta">${esc(c.desc)}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <p class="su-meta" style="margin:14px 0 10px;">Seed-stage startups add a dedicated Problem & Impact category. Exact point values always show live while you're scoring, here's the full breakdown if you want it upfront:</p>
+      ${rubricOverviewHtml('pre-seed','tech-enabled')}
+      ${rubricOverviewHtml('pre-seed','deeptech')}
+      ${rubricOverviewHtml('seed','tech-enabled')}
+      ${rubricOverviewHtml('seed','deeptech')}
     </div>
 
     ${S.resources.length ? `
-    <div class="card" style="max-width:none;padding:22px 24px;margin-bottom:20px;">
+    <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
       <h3 style="margin-top:0;font-size:15px;">Resources from the team</h3>
       <div style="display:flex;flex-direction:column;gap:14px;">
         ${S.resources.map(r=>`
@@ -2041,7 +2102,7 @@ function renderEvaluatorHome(){
       </div>
     </div>` : ''}
 
-    <button class="btn btn-primary" id="goToList">View my assigned startups &rarr;</button>
+    <button class="btn btn-primary" id="goToList" style="height:46px;padding:0 24px;"><i class="ph-fill ph-squares-four"></i> View my assigned startups${assigned.length?` (${assigned.length})`:''}</button>
   </div>
   <div class="toast" id="toast"></div>`;
 }
@@ -2066,7 +2127,7 @@ function renderEvaluatorList(){
 
     ${allAssigned.length===0 ? `<div class="empty"><i class="ph ph-tray"></i>No startups have been assigned to you yet. Check with the admin.</div>` : (assigned.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
     <div class="startup-grid">
-      ${assigned.map(s=>{
+      ${assigned.map((s,i)=>{
         const own = S.scores[ev.id+'::'+s.id];
         const rubric = getRubric(s);
         const maxTotal = rubric ? rubricMaxTotal(rubric) : 100;
@@ -2078,7 +2139,7 @@ function renderEvaluatorList(){
         const pct = ownTotal===null ? null : (ownTotal/maxTotal*100);
         const g = gaugeColor(pct);
         return `
-        <div class="startup-tile" data-open="${s.id}">
+        <div class="startup-tile ${own?'is-scored':'is-pending'}" data-open="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms;">
           <div class="row-between" style="align-items:flex-start;">
             ${progressRing(pct, g, ownTotal===null?'—':ownTotal, 40)}
             <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
@@ -2193,14 +2254,24 @@ function renderEvaluatorDetail(){
 
   const stepperHtml = `
     <div class="stepper">
-      ${rubric.map((cat, i) => `
-        <div class="step-dot ${i===step && !isFinalStep ? 'active':''}" data-step="${i}">
-          <span>${esc(cat.label.replace(/^\d+\.\s*/,''))}</span>
-          <span class="step-sub">${categorySubtotal(cat, draft)}/${cat.maxPoints}</span>
-        </div>`).join('')}
-      <div class="step-dot final ${isFinalStep?'active':''}" data-step="${rubric.length}">
-        <span>Go/No-Go &amp; Notes</span>
-        <span class="step-sub">${draft.goNoGo ? (draft.goNoGo==='go'?'Go':'No-Go') : '—'}</span>
+      ${rubric.map((cat, i) => {
+        const isComplete = cat.subcriteria.every(sub => draft.subScores[sub.key] !== undefined);
+        const isActive = i===step && !isFinalStep;
+        return `
+        <div class="step-item ${isActive?'active':''} ${isComplete?'complete':''}" data-step="${i}">
+          <div class="step-marker">${isComplete && !isActive ? '<i class="ph-fill ph-check"></i>' : (i+1)}</div>
+          <div class="step-label">
+            <span>${esc(cat.label.replace(/^\d+\.\s*/,''))}</span>
+            <span class="step-sub">${categorySubtotal(cat, draft)}/${cat.maxPoints}</span>
+          </div>
+        </div>`;
+      }).join('')}
+      <div class="step-item final ${isFinalStep?'active':''} ${draft.goNoGo?'complete':''}" data-step="${rubric.length}">
+        <div class="step-marker">${draft.goNoGo && !isFinalStep ? '<i class="ph-fill ph-check"></i>' : '<i class="ph-fill ph-flag-checkered"></i>'}</div>
+        <div class="step-label">
+          <span>Go/No-Go</span>
+          <span class="step-sub">${draft.goNoGo ? (draft.goNoGo==='go'?'Go':'No-Go') : '—'}</span>
+        </div>
       </div>
     </div>`;
 
