@@ -129,6 +129,9 @@
   .segmented-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted);}
   .legend-item{display:flex;align-items:center;gap:5px;}
   .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;}
+  .dash-alert{display:flex;align-items:flex-start;gap:12px;background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:20px;font-size:13.5px;}
+  .dash-alert i{font-size:20px;flex-shrink:0;margin-top:1px;}
+  .dash-alert b{display:block;margin-bottom:2px;}
   .scoring-overview-label{font-weight:600;font-size:13.5px;}
   .role-title{font-weight:600;font-size:14.5px;}
   .role-desc{font-size:12.5px;color:var(--muted);}
@@ -1103,6 +1106,7 @@ let S = {
   adminAuthed: false,
   evaluator: null,       // logged-in evaluator object
   adminTab: 'dashboard',
+  dashboardTrack: 'all', // 'all' | 'pre-seed' | 'seed' — scopes the whole dashboard to one track
   assignBoxOpenFor: null,  // evaluator id whose assign panel is open, survives re-renders
   assignSearchQuery: '',
   startups: [],
@@ -1468,34 +1472,36 @@ function attachAdminShell(){
 
 /* ---- Admin: Dashboard tab ---- */
 function renderAdminDashboard(){
-  const startups = S.startups;
-  const total = startups.length;
-
-  if(total === 0){
+  if(S.startups.length === 0){
     return `<div class="empty"><i class="ph ph-chart-bar"></i>No startups yet. Upload a CSV from the Startups tab to see your dashboard.</div>`;
   }
 
-  const preSeedCount = startups.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
-  const seedCount = startups.filter(s=>s.track==='seed').length;
+  const trackFilter = S.dashboardTrack || 'all';
+  const startups = S.startups.filter(s => trackFilter==='all' || (s.track||'pre-seed')===trackFilter);
+  const total = startups.length;
+  const startupIdsInScope = new Set(startups.map(s=>s.id));
+
+  const preSeedCount = S.startups.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
+  const seedCount = S.startups.filter(s=>s.track==='seed').length;
   const techCount = startups.filter(s=>s.type==='tech-enabled').length;
   const deepCount = startups.filter(s=>s.type==='deeptech').length;
   const noTypeCount = startups.filter(s=>!s.type).length;
 
   const assignedIds = new Set();
-  S.evaluators.forEach(e=>e.assignedStartupIds.forEach(id=>assignedIds.add(id)));
+  S.evaluators.forEach(e=>e.assignedStartupIds.forEach(id=>{ if(startupIdsInScope.has(id)) assignedIds.add(id); }));
   const unassignedCount = startups.filter(s=>!assignedIds.has(s.id)).length;
-  const assignedPct = total ? ((total-unassignedCount)/total*100) : null;
 
   let totalPairs = 0, scoredPairs = 0;
   S.evaluators.forEach(ev=>{
     ev.assignedStartupIds.forEach(suId=>{
+      if(!startupIdsInScope.has(suId)) return;
       totalPairs++;
       if(S.scores[ev.id+'::'+suId]) scoredPairs++;
     });
   });
   const scoringPct = totalPairs ? (scoredPairs/totalPairs*100) : null;
 
-  const allScores = Object.values(S.scores);
+  const allScores = Object.entries(S.scores).filter(([k])=> startupIdsInScope.has(k.split('::')[1])).map(([,v])=>v);
   const goCount = allScores.filter(sc=>sc.goNoGo==='go').length;
   const noGoCount = allScores.filter(sc=>sc.goNoGo==='no-go').length;
   const noCallCount = allScores.length - goCount - noGoCount;
@@ -1508,10 +1514,12 @@ function renderAdminDashboard(){
   const richDataCount = startups.filter(s=>s.application).length; // loaded this session only, so this is a lower bound
 
   const evalProgress = S.evaluators.map(ev=>{
-    const assigned = ev.assignedStartupIds.length;
-    const scored = ev.assignedStartupIds.filter(id=>S.scores[ev.id+'::'+id]).length;
-    return { name: ev.name, assigned, scored };
-  }).sort((a,b)=> (b.assigned-b.scored) - (a.assigned-a.scored));
+    const assignedInScope = ev.assignedStartupIds.filter(id=>startupIdsInScope.has(id));
+    const scored = assignedInScope.filter(id=>S.scores[ev.id+'::'+id]).length;
+    return { name: ev.name, assigned: assignedInScope.length, scored };
+  }).filter(e=>e.assigned>0).sort((a,b)=> (b.assigned-b.scored) - (a.assigned-a.scored));
+
+  const notStarted = evalProgress.filter(e=>e.scored===0);
 
   const statCard = (icon, value, label, tone) => `
     <div class="stat-card">
@@ -1540,17 +1548,25 @@ function renderAdminDashboard(){
   };
 
   const scoringRingColors = scoringPct===null ? {border:'var(--line)',text:'var(--muted)'} : gaugeColor(scoringPct);
+  const trackLabel = trackFilter==='all' ? '' : (trackFilter==='seed' ? 'Seed ' : 'Pre-Seed ');
+  const relevantQuadrants = QUADRANTS.filter(q => trackFilter==='all' || q.track===trackFilter);
 
   return `
-  <div class="eval-hero" style="margin:-24px -28px 24px;">
+  <div class="row" style="gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="tab-pill ${trackFilter==='all'?'active':''}" data-dash-track="all">All (${S.startups.length})</button>
+    <button class="tab-pill ${trackFilter==='pre-seed'?'active':''}" data-dash-track="pre-seed">Pre-Seed (${preSeedCount})</button>
+    <button class="tab-pill ${trackFilter==='seed'?'active':''}" data-dash-track="seed">Seed (${seedCount})</button>
+  </div>
+
+  <div class="eval-hero" style="margin:0 -28px 24px;">
     <div class="hero-circle c1" style="border-color:rgba(10,25,61,0.06);"></div>
     <div class="hero-circle c2" style="border-color:rgba(92,212,94,0.14);"></div>
     <div class="hero-circle c3" style="border-color:rgba(10,25,61,0.06);"></div>
     <div class="eval-hero-inner">
       <div>
         <div class="eval-hero-eyebrow">Dashboard</div>
-        <h1>${total} startup${total===1?'':'s'} in the pipeline</h1>
-        <p>${S.evaluators.length} evaluator${S.evaluators.length===1?'':'s'} &middot; ${scoredPairs} of ${totalPairs} assignments scored${unassignedCount?` &middot; ${unassignedCount} startup${unassignedCount===1?'':'s'} still need an evaluator`:''}</p>
+        <h1>${total} ${trackLabel}startup${total===1?'':'s'} in the pipeline</h1>
+        <p>${evalProgress.length} evaluator${evalProgress.length===1?'':'s'} with work here &middot; ${scoredPairs} of ${totalPairs} assignments scored${unassignedCount?` &middot; ${unassignedCount} startup${unassignedCount===1?'':'s'} still need an evaluator`:''}</p>
       </div>
       <div class="eval-hero-ring">
         ${progressRing(scoringPct, scoringRingColors, scoringPct===null?'—':scoringPct.toFixed(0)+'%', 84)}
@@ -1558,28 +1574,32 @@ function renderAdminDashboard(){
     </div>
   </div>
 
+  ${notStarted.length ? `
+  <div class="dash-alert">
+    <i class="ph-fill ph-warning-circle"></i>
+    <div>
+      <b>${notStarted.length} evaluator${notStarted.length===1?'':'s'} ${notStarted.length===1?"hasn't":"haven't"} started grading${trackLabel?' for '+trackLabel.trim():''}:</b>
+      ${notStarted.map(e=>`${esc(e.name)} (0/${e.assigned})`).join(', ')}
+    </div>
+  </div>` : ''}
+
   <div class="stat-grid" style="margin-bottom:20px;">
     ${statCard('ph-buildings', total, 'Total startups')}
-    ${statCard('ph-users-three', S.evaluators.length, 'Evaluators')}
+    ${statCard('ph-users-three', evalProgress.length, 'Evaluators with work here')}
     ${statCard('ph-file-text', deckCount+' / '+total, 'Have a deck link')}
     ${statCard('ph-warning', unassignedCount, 'Unassigned startups', unassignedCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : null)}
   </div>
 
   <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;">
     <div class="card" style="max-width:none;flex:1;min-width:280px;padding:20px 22px;">
-      <h3 style="margin-top:0;font-size:14.5px;">By track &amp; type</h3>
-      ${segmentedBar([
-        {label:'Pre-Seed', value:preSeedCount, color:'var(--accent)'},
-        {label:'Seed', value:seedCount, color:'var(--ost-navy)'}
-      ])}
-      <div style="height:14px;"></div>
+      <h3 style="margin-top:0;font-size:14.5px;">By type</h3>
       ${segmentedBar([
         {label:'Tech-enabled', value:techCount, color:'var(--accent)'},
         {label:'Deeptech', value:deepCount, color:'var(--ost-navy)'},
         ...(noTypeCount ? [{label:'Type not set', value:noTypeCount, color:'var(--danger)'}] : [])
       ])}
       <div class="row" style="gap:6px;margin-top:16px;flex-wrap:wrap;">
-        ${QUADRANTS.map(q=>`<button class="tab-pill" data-dash-quad="${q.key}">${esc(q.label)} (${startups.filter(s=>quadrantKeyOf(s)===q.key).length})</button>`).join('')}
+        ${relevantQuadrants.map(q=>`<button class="tab-pill" data-dash-quad="${q.key}">${esc(q.label)} (${S.startups.filter(s=>quadrantKeyOf(s)===q.key).length})</button>`).join('')}
       </div>
     </div>
 
@@ -1604,13 +1624,16 @@ function renderAdminDashboard(){
 
     <div class="card" style="max-width:none;flex:1;min-width:260px;padding:20px 22px;">
       <h3 style="margin-top:0;font-size:14.5px;">Evaluator progress</h3>
-      ${evalProgress.length===0 ? `<p class="su-meta">No evaluators added yet.</p>` :
-        evalProgress.map(e=>barRow(e.name, e.scored, e.assigned || 1, e.assigned && e.scored===e.assigned ? 'var(--accent)' : 'var(--ost-navy)')).join('')}
+      ${evalProgress.length===0 ? `<p class="su-meta">No evaluators have startups assigned here yet.</p>` :
+        evalProgress.map(e=>barRow(e.name, e.scored, e.assigned || 1, e.scored===0 ? 'var(--danger)' : (e.assigned && e.scored===e.assigned ? 'var(--accent)' : 'var(--ost-navy)'))).join('')}
     </div>
   </div>
   `;
 }
 function attachAdminDashboard(){
+  document.querySelectorAll('[data-dash-track]').forEach(b=>{
+    b.onclick = ()=>{ S.dashboardTrack = b.dataset.dashTrack; render(); };
+  });
   document.querySelectorAll('[data-dash-quad]').forEach(b=>{
     b.onclick = ()=>{ S.adminTab = 'startups'; S.adminStartupQuadrant = b.dataset.dashQuad; render(); };
   });
