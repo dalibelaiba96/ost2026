@@ -203,6 +203,10 @@
   .qa-q-badge{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;margin-top:1px;}
   .qa-a{font-size:14.5px;line-height:1.7;white-space:pre-wrap;color:var(--ink);padding-left:34px;}
   .qa-count{font-size:12px;color:var(--muted);font-weight:600;margin:0 0 4px;}
+  .startup-header{display:flex;align-items:center;gap:16px;padding:16px 28px;background:var(--surface);border-bottom:1px solid var(--line);}
+  .startup-header-logo{width:52px;height:52px;border-radius:14px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;flex-shrink:0;}
+  .startup-header-info h2{margin:0;font-size:18px;font-weight:900;}
+  .startup-header-info .su-meta{font-size:12.5px;margin-top:3px;}
   .stepper{display:flex;gap:6px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch;}
   .step-dot{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:11.5px;font-weight:600;color:var(--muted);min-width:84px;text-align:center;}
   .step-dot.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-dark);}
@@ -1495,7 +1499,7 @@ function renderAdminStartups(){
   ${S.startups.length === 0 ? `<div class="empty"><i class="ph ph-upload-simple"></i>No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : (visibleStartups.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Memo</th><th>Deck</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Deck</th><th></th></tr></thead>
       <tbody>
         ${visibleStartups.map(s=>`
           <tr>
@@ -1514,10 +1518,8 @@ function renderAdminStartups(){
               </select>
             </td>
             <td>${esc(s.country||'—')}</td>
-            <td>${s.memo ? '<span class="pill pill-done">Written</span>' : '<span class="pill pill-pending">Empty</span>'}</td>
             <td>${s.deckOverride ? '<span class="pill pill-done">Re-hosted</span>' : (s.decks ? '<span class="pill pill-pending">F6S link only</span>' : '<span class="pill pill-pending">None</span>')}</td>
             <td>
-              <button class="icon-btn" data-edit-memo="${s.id}"><i class="ph ph-note-pencil"></i> Edit memo</button>
               <button class="icon-btn" data-edit-deck="${s.id}"><i class="ph ph-link"></i> Edit deck link</button>
               <button class="icon-btn danger" data-delete-startup="${s.id}"><i class="ph ph-trash"></i> Delete</button>
             </td>
@@ -1526,7 +1528,7 @@ function renderAdminStartups(){
     </table>
   </div>`)}
 
-  <div id="memoEditor"></div>`;
+  `;
 }
 
 function attachAdminStartups(){
@@ -1659,57 +1661,10 @@ function attachAdminStartups(){
       render();
     };
   });
-  document.querySelectorAll('[data-edit-memo]').forEach(b=>{
-    b.onclick = ()=>{
-      const startup = S.startups.find(s=>s.id===b.dataset.editMemo);
-      const holder = document.getElementById('memoEditor');
-      holder.innerHTML = `
-        <div class="card" style="max-width:640px;margin-top:20px;">
-          <h2 style="font-size:17px;">Memo — ${esc(startup.name)}</h2>
-          <p class="sub">This appears in the evaluator's info panel alongside the CSV data.</p>
-          <div class="field">
-            <textarea id="memoText" rows="10">${esc(startup.memo||'')}</textarea>
-          </div>
-          <div class="row">
-            <button class="btn btn-primary" id="saveMemo">Save memo</button>
-            <button class="btn btn-ghost" id="closeMemo">Close</button>
-          </div>
-        </div>`;
-      document.getElementById('saveMemo').onclick = async ()=>{
-        startup.memo = document.getElementById('memoText').value;
-        await docSave(STARTUPS_COLLECTION, startup.id, startup);
-        toast('Memo saved');
-        holder.innerHTML = '';
-      };
-      document.getElementById('closeMemo').onclick = ()=>{ holder.innerHTML=''; };
-    };
-  });
   document.querySelectorAll('[data-edit-deck]').forEach(b=>{
     b.onclick = ()=>{
       const startup = S.startups.find(s=>s.id===b.dataset.editDeck);
-      const holder = document.getElementById('memoEditor');
-      holder.innerHTML = `
-        <div class="card" style="max-width:640px;margin-top:20px;">
-          <h2 style="font-size:17px;">Deck link — ${esc(startup.name)}</h2>
-          <p class="sub">F6S's own file links require an F6S login and won't preview for evaluators. Download the deck once and re-host it somewhere public (Google Drive with "anyone with the link", Dropbox, etc.), then paste that link here, it'll be used instead.</p>
-          ${startup.decks ? `<p class="su-meta" style="margin-bottom:14px;">Original F6S reference: ${esc(startup.decks)}</p>` : ''}
-          <div class="field">
-            <label>Re-hosted deck link</label>
-            <input id="deckLinkInput" placeholder="https://drive.google.com/..." value="${escAttr(startup.deckOverride||'')}"/>
-          </div>
-          <div class="row">
-            <button class="btn btn-primary" id="saveDeckLink">Save deck link</button>
-            <button class="btn btn-ghost" id="closeDeckLink">Close</button>
-          </div>
-        </div>`;
-      document.getElementById('saveDeckLink').onclick = async ()=>{
-        startup.deckOverride = document.getElementById('deckLinkInput').value.trim();
-        await docSave(STARTUPS_COLLECTION, startup.id, startup);
-        toast('Deck link saved');
-        holder.innerHTML = '';
-        render();
-      };
-      document.getElementById('closeDeckLink').onclick = ()=>{ holder.innerHTML=''; };
+      openDeckLinkEditor(startup);
     };
   });
 }
@@ -2194,6 +2149,21 @@ function renderEvaluatorDetail(){
   const isFinalStep = step >= rubric.length;
   const currentCat = isFinalStep ? null : rubric[step];
 
+  // Persistent identity header — same on every category and the final step, so the
+  // startup you're looking at is never ambiguous while stepping through the rubric.
+  const startupHeaderHtml = `
+    <div class="startup-header">
+      <div class="startup-header-logo">${esc((s.name||'?').trim().charAt(0).toUpperCase())}</div>
+      <div class="startup-header-info">
+        <h2>${esc(s.name)}</h2>
+        <div class="su-meta">
+          ${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}${s.sector?' &middot; '+esc(s.sector):''}${s.country?' &middot; '+esc(s.country):''}
+          ${s.website ? ' &middot; '+asLink(s.website) : ''}
+          ${deckDisplayHtml(s) ? ' &middot; '+deckDisplayHtml(s) : ''}
+        </div>
+      </div>
+    </div>`;
+
   const stepperHtml = `
     <div class="stepper">
       ${rubric.map((cat, i) => `
@@ -2213,7 +2183,7 @@ function renderEvaluatorDetail(){
     bodyHtml = `
       <div class="detail-shell">
         <div class="panel-left">
-          <h3 style="margin-top:0;">Final call — ${esc(s.name)}</h3>
+          <h3 style="margin-top:0;">Final call</h3>
           <div class="rubric-total-bar"><span class="label">Overall total</span><span class="value">${overallTotal} / ${rubricMaxTotal(rubric)}</span></div>
           <div class="gonogo-row">
             <button type="button" class="gonogo-btn go ${draft.goNoGo==='go'?'selected':''}" data-gonogo="go">Go</button>
@@ -2236,10 +2206,6 @@ function renderEvaluatorDetail(){
             </div>
           </div>
           <p class="su-meta">Click any category above to go back and adjust a score before finishing.</p>
-          <div class="info-block">
-            <h4>Investment memo</h4>
-            <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
-          </div>
         </div>
       </div>`;
   } else {
@@ -2287,29 +2253,14 @@ function renderEvaluatorDetail(){
         </div>
         <div class="panel-right">
           <div class="info-block">
-            <h4>Company Basics</h4>
-            <div class="kv">
-              <div>Sector</div><div>${esc(s.sector||'—')}</div>
-              <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
-              <div>Country</div><div>${esc(s.country||'—')}</div>
-              <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
-              <div>Pitch deck</div><div>${deckDisplayHtml(s) || '—'}</div>
-            </div>
-          </div>
-          <div class="info-block">
             <h4>${esc(currentCat.label)} — Evidence</h4>
             ${categoryEvidenceHtml(currentCat.id, s)}
             ${categoryQAHtml(currentCat.id, s)}
-          </div>
-          <div class="info-block">
-            <h4>Investment memo</h4>
-            <div class="memo-text">${s.memo ? esc(s.memo) : '<span style="color:var(--muted);font-style:italic;">No memo written yet.</span>'}</div>
           </div>
           ${(currentCat.id==='market_fit') ? `
           <div class="info-block">
             <h4>Resources</h4>
             <div class="kv">
-              ${deckDisplayHtml(s) ? `<div>Pitch deck</div><div>${deckDisplayHtml(s)}</div>` : ''}
               ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
             </div>
           </div>` : ''}
@@ -2319,6 +2270,7 @@ function renderEvaluatorDetail(){
 
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+  ${startupHeaderHtml}
   ${stepperHtml}
   <div class="content">
     <button class="back-link back-row" id="backList">&larr; Back to your list</button>
@@ -2492,6 +2444,49 @@ function openDeckPreview(url){
 function closeDeckPreview(){
   const root = document.getElementById('deckModalRoot');
   if(root) root.innerHTML = '';
+}
+
+// Same modal pattern as the deck preview, but with a form instead of an iframe — always
+// centered on screen regardless of scroll position, so it can't get lost below a long table.
+function openDeckLinkEditor(startup){
+  let root = document.getElementById('deckModalRoot');
+  if(!root){
+    root = document.createElement('div');
+    root.id = 'deckModalRoot';
+    document.body.appendChild(root);
+  }
+  root.innerHTML = `
+    <div class="deck-modal-backdrop" id="deckEditBackdrop">
+      <div class="deck-modal" style="height:auto;max-width:560px;">
+        <div class="deck-modal-head">
+          <span><i class="ph ph-link"></i> Deck link — ${esc(startup.name)}</span>
+          <button class="icon-btn" id="deckEditClose"><i class="ph ph-x"></i></button>
+        </div>
+        <div style="padding:20px;">
+          <p class="su-meta" style="margin:0 0 14px;">F6S's own file links require an F6S login and won't preview for evaluators. Download the deck once and re-host it somewhere public (Google Drive with "anyone with the link", Dropbox, etc.), then paste that link here, it'll be used instead.</p>
+          ${startup.decks ? `<p class="su-meta" style="margin-bottom:14px;">Original F6S reference: ${esc(startup.decks)}</p>` : ''}
+          <div class="field">
+            <label>Re-hosted deck link</label>
+            <input id="deckLinkInput" placeholder="https://drive.google.com/..." value="${escAttr(startup.deckOverride||'')}"/>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" id="saveDeckLink">Save deck link</button>
+            <button class="btn btn-ghost" id="closeDeckLink">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const close = ()=>{ root.innerHTML = ''; };
+  document.getElementById('deckEditClose').onclick = close;
+  document.getElementById('closeDeckLink').onclick = close;
+  document.getElementById('deckEditBackdrop').onclick = (e)=>{ if(e.target.id==='deckEditBackdrop') close(); };
+  document.getElementById('saveDeckLink').onclick = async ()=>{
+    startup.deckOverride = document.getElementById('deckLinkInput').value.trim();
+    await docSave(STARTUPS_COLLECTION, startup.id, startup);
+    toast('Deck link saved');
+    close();
+    render();
+  };
 }
 
 function categoryEvidenceHtml(catId, s){
