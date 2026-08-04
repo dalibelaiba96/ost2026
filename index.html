@@ -1510,7 +1510,7 @@ function renderAdminStartups(){
   if(S.csvPreview){
     return `
     <div class="section-title">Review before saving</div>
-    <p class="section-sub">${S.csvPreview.length} rows parsed from your file. Type was auto-guessed (Deeptech vs Tech-enabled), double check and adjust before saving. Track defaults to Pre-Seed, change it if this batch is Seed.</p>
+    <p class="section-sub">${S.csvPreview.length} rows parsed from your file. Type was auto-guessed (Deeptech vs Tech-enabled), double check and adjust before saving. Track was set from the button you used to upload, still editable per row if needed.</p>
     <div class="table-wrap" style="margin-bottom:16px;">
       <table>
         <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>One-liner</th><th></th></tr></thead>
@@ -1559,8 +1559,10 @@ function renderAdminStartups(){
     </div>
     <div class="row" style="gap:8px;">
       ${selected.length ? `<button class="btn btn-ghost" id="deleteSelectedBtn" style="color:var(--danger);border-color:var(--danger-soft);"><i class="ph ph-trash"></i> Delete selected (${selected.length})</button>` : ''}
-      <label class="btn btn-primary" for="csvInput"><i class="ph ph-upload-simple"></i> Upload F6S export</label>
-      <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
+      <label class="btn btn-ghost" for="csvInputPreSeed"><i class="ph ph-upload-simple"></i> Upload Pre-Seed CSV</label>
+      <input type="file" id="csvInputPreSeed" data-track="pre-seed" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
+      <label class="btn btn-ghost" for="csvInputSeed"><i class="ph ph-upload-simple"></i> Upload Seed CSV</label>
+      <input type="file" id="csvInputSeed" data-track="seed" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
     </div>
   </div>
 
@@ -1647,16 +1649,20 @@ function attachAdminStartups(){
     };
   }
 
-  const csvInput = document.getElementById('csvInput');
-  if(csvInput){
+  ['csvInputPreSeed', 'csvInputSeed'].forEach(inputId=>{
+    const csvInput = document.getElementById(inputId);
+    if(!csvInput) return;
     csvInput.onchange = (e)=>{
       const file = e.target.files[0];
       if(!file) return;
+      const track = csvInput.dataset.track; // 'pre-seed' or 'seed' — applied to every row in this batch
       const lowerName = file.name.toLowerCase();
       const isExcel = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls');
 
       const finishMappedRows = (mappedRows)=>{
-        const rows = mappedRows.filter(r=>(r.name && r.name !== '(unnamed startup)') || Object.keys(r.extra).length || r.application);
+        const rows = mappedRows
+          .filter(r=>(r.name && r.name !== '(unnamed startup)') || Object.keys(r.extra).length || r.application)
+          .map(r=>({...r, track}));
         if(rows.length === 0){ toast('No rows found in that file'); return; }
         S.csvPreview = rows;
         render();
@@ -1723,7 +1729,7 @@ function attachAdminStartups(){
         });
       }
     };
-  }
+  });
   document.querySelectorAll('[data-i]').forEach(inp=>{
     const handler = ()=>{
       const i = +inp.dataset.i, f = inp.dataset.f;
