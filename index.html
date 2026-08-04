@@ -1521,32 +1521,6 @@ function renderAdminDashboard(){
 
   const notStarted = evalProgress.filter(e=>e.scored===0);
 
-  const statCard = (icon, value, label, tone) => `
-    <div class="stat-card">
-      <div class="stat-icon" style="${tone?`background:${tone.bg};color:${tone.fg};`:''}"><i class="ph-fill ${icon}"></i></div>
-      <div>
-        <div class="stat-value">${value}</div>
-        <div class="stat-label">${esc(label)}</div>
-      </div>
-    </div>`;
-
-  const barRow = (label, value, max, color) => `
-    <div class="bar-row">
-      <div class="bar-row-label"><span>${esc(label)}</span><span class="bar-row-value">${value}</span></div>
-      <div class="bar-track"><div class="bar-fill" style="width:${max?(value/max*100):0}%;background:${color};"></div></div>
-    </div>`;
-
-  const segmentedBar = (segments) => {
-    const totalVal = segments.reduce((s,x)=>s+x.value,0) || 1;
-    return `
-    <div class="segmented-bar">
-      ${segments.map(s=>`<div style="width:${(s.value/totalVal*100)}%;background:${s.color};" title="${esc(s.label)}: ${s.value}"></div>`).join('')}
-    </div>
-    <div class="segmented-legend">
-      ${segments.map(s=>`<span class="legend-item"><span class="legend-dot" style="background:${s.color};"></span>${esc(s.label)} (${s.value})</span>`).join('')}
-    </div>`;
-  };
-
   const scoringRingColors = scoringPct===null ? {border:'var(--line)',text:'var(--muted)'} : gaugeColor(scoringPct);
   const trackLabel = trackFilter==='all' ? '' : (trackFilter==='seed' ? 'Seed ' : 'Pre-Seed ');
   const relevantQuadrants = QUADRANTS.filter(q => trackFilter==='all' || q.track===trackFilter);
@@ -2270,6 +2244,34 @@ function attachEvalLogin(){
 }
 
 /* ============ EVALUATOR SHELL ============ */
+function statCard(icon, value, label, tone){
+  return `
+    <div class="stat-card">
+      <div class="stat-icon" style="${tone?`background:${tone.bg};color:${tone.fg};`:''}"><i class="ph-fill ${icon}"></i></div>
+      <div>
+        <div class="stat-value">${value}</div>
+        <div class="stat-label">${esc(label)}</div>
+      </div>
+    </div>`;
+}
+function barRow(label, value, max, color){
+  return `
+    <div class="bar-row">
+      <div class="bar-row-label"><span>${esc(label)}</span><span class="bar-row-value">${value}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${max?(value/max*100):0}%;background:${color};"></div></div>
+    </div>`;
+}
+function segmentedBar(segments){
+  const totalVal = segments.reduce((s,x)=>s+x.value,0) || 1;
+  return `
+    <div class="segmented-bar">
+      ${segments.map(s=>`<div style="width:${(s.value/totalVal*100)}%;background:${s.color};" title="${esc(s.label)}: ${s.value}"></div>`).join('')}
+    </div>
+    <div class="segmented-legend">
+      ${segments.map(s=>`<span class="legend-item"><span class="legend-dot" style="background:${s.color};"></span>${esc(s.label)} (${s.value})</span>`).join('')}
+    </div>`;
+}
+
 function gaugeColor(pct){
   if(pct===null) return {border:'var(--line)', text:'var(--muted)'};
   if(pct < 40) return {border:'var(--danger)', text:'var(--danger)'};
@@ -2331,6 +2333,57 @@ function rubricOverviewHtml(track, type){
   `;
 }
 
+function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
+  const pendingCount = assigned.length - scoredCount;
+  const preSeedCount = assigned.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
+  const seedCount = assigned.filter(s=>s.track==='seed').length;
+  const techCount = assigned.filter(s=>s.type==='tech-enabled').length;
+  const deepCount = assigned.filter(s=>s.type==='deeptech').length;
+
+  const myScores = assigned.map(s=>S.scores[ev.id+'::'+s.id]).filter(Boolean);
+  const goCount = myScores.filter(sc=>sc.goNoGo==='go').length;
+  const noGoCount = myScores.filter(sc=>sc.goNoGo==='no-go').length;
+  const noCallCount = myScores.length - goCount - noGoCount;
+
+  const countryCounts = {};
+  assigned.forEach(s=>{ const c = s.country ? s.country.split(',').pop().trim() : 'Unknown'; countryCounts[c] = (countryCounts[c]||0)+1; });
+  const countriesSorted = Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]);
+
+  return `
+  <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
+    <h3 style="margin-top:0;font-size:15px;">Your progress</h3>
+    <div class="stat-grid" style="margin-bottom:20px;">
+      ${statCard('ph-buildings', assigned.length, 'Assigned to you')}
+      ${statCard('ph-check-circle', scoredCount, 'Scored', scoredCount>0 ? {bg:'var(--accent-soft)',fg:'var(--accent-dark)'} : null)}
+      ${statCard('ph-hourglass', pendingCount, 'Still pending', pendingCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : {bg:'var(--accent-soft)',fg:'var(--accent-dark)'})}
+      ${statCard('ph-globe-hemisphere-west', countriesSorted.length, 'Countries in your list')}
+    </div>
+
+    <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="flex:1;min-width:240px;">
+        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">By track &amp; type</h4>
+        ${segmentedBar([
+          {label:'Pre-Seed', value:preSeedCount, color:'var(--ost-navy)'},
+          {label:'Seed', value:seedCount, color:'var(--muted)'}
+        ])}
+        <div style="height:12px;"></div>
+        ${segmentedBar([
+          {label:'Tech-enabled', value:techCount, color:'var(--ost-navy)'},
+          {label:'Deeptech', value:deepCount, color:'var(--muted)'}
+        ])}
+      </div>
+      <div style="flex:1;min-width:240px;">
+        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">Your Go / No-Go calls</h4>
+        ${myScores.length===0 ? `<p class="su-meta">You haven't submitted any calls yet.</p>` : segmentedBar([
+          {label:'Go', value:goCount, color:'var(--accent)'},
+          {label:'No-Go', value:noGoCount, color:'var(--danger)'},
+          {label:'No call yet', value:noCallCount, color:'var(--gold)'}
+        ])}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderEvaluatorHome(){
   const ev = S.evaluator;
   const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
@@ -2356,6 +2409,7 @@ function renderEvaluatorHome(){
     </div>
   </div>
   <div class="content">
+    ${assigned.length ? renderEvaluatorPersonalStats(ev, assigned, scoredCount) : ''}
     <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
       <h3 style="margin-top:0;font-size:15px;">How scoring works</h3>
       <p class="su-meta" style="margin-bottom:16px;">Every startup is scored out of 100 points, one category at a time, plus a final Go/No-Go call. The founder's actual application answers show up right alongside each category, so you always have full context.</p>
