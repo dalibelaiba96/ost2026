@@ -1016,6 +1016,8 @@ let S = {
   adminAuthed: false,
   evaluator: null,       // logged-in evaluator object
   adminTab: 'startups',
+  assignBoxOpenFor: null,  // evaluator id whose assign panel is open, survives re-renders
+  assignSearchQuery: '',
   startups: [],
   evaluators: [],
   scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
@@ -1698,14 +1700,36 @@ function renderAdminEvaluators(){
             <div class="su-meta mono">code: ${esc(ev.code)} &middot; ${ev.assignedStartupIds.length} assigned</div>
           </div>
           <div class="row">
-            <button class="icon-btn" data-assign="${ev.id}"><i class="ph ph-list-checks"></i> Assign startups</button>
+            <button class="icon-btn" data-assign="${ev.id}"><i class="ph ph-list-checks"></i> ${S.assignBoxOpenFor===ev.id?'Close':'Assign startups'}</button>
             <button class="icon-btn danger" data-delete-eval="${ev.id}"><i class="ph ph-trash"></i> Remove</button>
           </div>
         </div>
-        <div id="assignBox-${ev.id}"></div>
+        ${S.assignBoxOpenFor===ev.id ? renderAssignBox(ev) : ''}
       </div>`).join('')}
   </div>`}
   `;
+}
+
+function renderAssignBox(ev){
+  const query = (S.assignSearchQuery||'').trim().toLowerCase();
+  const filtered = S.startups.filter(s=>
+    !query || s.name.toLowerCase().includes(query) || (s.sector||'').toLowerCase().includes(query)
+  );
+  return `
+    <div style="margin-top:14px;">
+      <div class="row" style="gap:8px;margin-bottom:10px;">
+        <input id="assignSearch-${ev.id}" placeholder="Search startups by name or sector..." value="${escAttr(S.assignSearchQuery||'')}" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;"/>
+        <button class="btn btn-ghost" data-select-all="${ev.id}" style="white-space:nowrap;">Select all (${filtered.length})</button>
+        <button class="btn btn-ghost" data-clear-all="${ev.id}" style="white-space:nowrap;">Clear</button>
+      </div>
+      <div class="assign-grid" id="assignGrid-${ev.id}">
+        ${S.startups.length===0 ? '<div class="su-meta">No startups uploaded yet.</div>' : filtered.length===0 ? '<div class="su-meta">No startups match your search.</div>' : filtered.map(s=>`
+          <label class="assign-item" data-search-blob="${escAttr((s.name+' '+(s.sector||'')).toLowerCase())}">
+            <input type="checkbox" data-su="${s.id}" ${ev.assignedStartupIds.includes(s.id)?'checked':''}/>
+            ${esc(s.name)} <span class="su-meta">${esc(s.sector||'')} &middot; ${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}</span>
+          </label>`).join('')}
+      </div>
+    </div>`;
 }
 function attachAdminEvaluators(){
   document.getElementById('addEvalBtn').onclick = ()=>{
@@ -1738,28 +1762,65 @@ function attachAdminEvaluators(){
   });
   document.querySelectorAll('[data-assign]').forEach(b=>{
     b.onclick = ()=>{
-      const ev = S.evaluators.find(e=>e.id===b.dataset.assign);
-      const box = document.getElementById('assignBox-'+ev.id);
-      if(box.innerHTML){ box.innerHTML=''; return; }
-      box.innerHTML = `
-        <div class="assign-grid" style="margin-top:12px;">
-          ${S.startups.length ? S.startups.map(s=>`
-            <label class="assign-item">
-              <input type="checkbox" data-su="${s.id}" ${ev.assignedStartupIds.includes(s.id)?'checked':''}/>
-              ${esc(s.name)} <span class="su-meta">${esc(s.sector||'')}</span>
-            </label>`).join('') : '<div class="su-meta">No startups uploaded yet.</div>'}
-        </div>`;
-      box.querySelectorAll('[data-su]').forEach(cb=>{
-        cb.onchange = async ()=>{
-          const suId = cb.dataset.su;
-          if(cb.checked && !ev.assignedStartupIds.includes(suId)) ev.assignedStartupIds.push(suId);
-          if(!cb.checked) ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>id!==suId);
-          await sset(K.evaluators, S.evaluators);
-          render();
-        };
-      });
+      const evId = b.dataset.assign;
+      S.assignBoxOpenFor = (S.assignBoxOpenFor === evId) ? null : evId;
+      S.assignSearchQuery = '';
+      render();
     };
   });
+
+  const openEvId = S.assignBoxOpenFor;
+  if(openEvId){
+    const ev = S.evaluators.find(e=>e.id===openEvId);
+    const searchInput = document.getElementById('assignSearch-'+openEvId);
+    if(searchInput){
+      // Filter client-side without a full re-render, so typing never loses focus.
+      searchInput.oninput = ()=>{
+        S.assignSearchQuery = searchInput.value;
+        const q = searchInput.value.trim().toLowerCase();
+        document.querySelectorAll(`#assignGrid-${openEvId} [data-search-blob]`).forEach(row=>{
+          row.style.display = (!q || row.dataset.searchBlob.includes(q)) ? '' : 'none';
+        });
+      };
+    }
+    const selectAllBtn = document.querySelector(`[data-select-all="${openEvId}"]`);
+    if(selectAllBtn){
+      selectAllBtn.onclick = async ()=>{
+        document.querySelectorAll(`#assignGrid-${openEvId} [data-su]`).forEach(cb=>{
+          const row = cb.closest('[data-search-blob]');
+          if(row && row.style.display === 'none') return; // respect current search filter
+          if(!ev.assignedStartupIds.includes(cb.dataset.su)) ev.assignedStartupIds.push(cb.dataset.su);
+        });
+        await sset(K.evaluators, S.evaluators);
+        toast('Assigned');
+        render();
+      };
+    }
+    const clearAllBtn = document.querySelector(`[data-clear-all="${openEvId}"]`);
+    if(clearAllBtn){
+      clearAllBtn.onclick = async ()=>{
+        const visibleIds = new Set();
+        document.querySelectorAll(`#assignGrid-${openEvId} [data-su]`).forEach(cb=>{
+          const row = cb.closest('[data-search-blob]');
+          if(row && row.style.display === 'none') return;
+          visibleIds.add(cb.dataset.su);
+        });
+        ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>!visibleIds.has(id));
+        await sset(K.evaluators, S.evaluators);
+        toast('Cleared');
+        render();
+      };
+    }
+    document.querySelectorAll(`#assignGrid-${openEvId} [data-su]`).forEach(cb=>{
+      cb.onchange = async ()=>{
+        const suId = cb.dataset.su;
+        if(cb.checked && !ev.assignedStartupIds.includes(suId)) ev.assignedStartupIds.push(suId);
+        if(!cb.checked) ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>id!==suId);
+        await sset(K.evaluators, S.evaluators);
+        render();
+      };
+    });
+  }
 }
 
 /* ---- Admin: Results tab ---- */
