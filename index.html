@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Open Startup — Pre-Seed Evaluation Platform</title>
+<title>Open Startup — Evaluation Platform</title>
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -130,11 +130,6 @@
   .deck-modal iframe{flex:1;border:none;width:100%;background:#F5F5F5;}
   [data-deck-preview]{cursor:pointer;}
 
-  /* ---------- upload ---------- */
-  .dropzone{border:1.5px dashed var(--line);border-radius:12px;padding:32px;text-align:center;background:#FCFCFA;}
-  .dropzone.drag{border-color:var(--accent);background:var(--accent-soft);}
-  .dropzone input[type=file]{display:none;}
-
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;padding:11px 14px;border-bottom:1px solid var(--line);background:var(--ost-off-white);position:sticky;top:0;z-index:2;}
   td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;transition:background var(--t-fast) var(--ease);}
@@ -161,7 +156,6 @@
   .panel-left{border-right:1px solid var(--line);padding:24px;background:#FCFCFA;}
   .panel-right{padding:28px 32px;overflow-y:auto;max-height:80vh;}
   .crit-row{margin-bottom:10px;}
-  .crit-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
   .crit-label{font-size:13px;font-weight:600;}
   .crit-value{font-family:'Graphik',sans-serif;font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent-dark);font-size:14px;flex-shrink:0;}
   .crit-header{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;transition:border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
@@ -173,7 +167,6 @@
   .crit-preview{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
   .crit-chevron{color:var(--muted);font-size:12px;flex-shrink:0;}
   input[type=range]{width:100%;accent-color:var(--accent);}
-  .save-bar{position:sticky;bottom:0;background:#FCFCFA;padding-top:16px;margin-top:8px;border-top:1px solid var(--line);}
   .info-block{margin-bottom:22px;}
   .info-block h4{font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);margin:0 0 8px;font-weight:700;}
   .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13.5px;}
@@ -181,8 +174,6 @@
   .rubric-total-bar{position:sticky;top:0;background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:12px 14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;z-index:5;}
   .rubric-total-bar .label{font-size:12px;color:var(--accent-dark);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;}
   .rubric-total-bar .value{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:18px;color:var(--accent-dark);}
-  .rubric-category{margin-bottom:24px;padding-bottom:4px;}
-  .rubric-cat-head{display:flex;justify-content:space-between;align-items:baseline;font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--line);}
   .rubric-cat-head .mono{color:var(--muted);font-size:12px;}
   .anchor-group{display:flex;flex-direction:column;gap:6px;margin-top:8px;padding:0 2px;animation:fadeSlideIn var(--t-base) var(--ease);}
   .anchor-btn{display:flex;align-items:flex-start;gap:10px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:12.5px;line-height:1.4;color:var(--ink);transition:border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);}
@@ -227,7 +218,9 @@
 
   /* results */
   .agg-row{cursor:pointer;}
-  .expand-panel{background:#FAFAF7;padding:16px 20px;border-bottom:1px solid var(--line);}
+  .expand-chevron{color:var(--muted);font-size:13px;transition:transform var(--t-fast) var(--ease);display:inline-block;}
+  .expand-chevron.open{transform:rotate(90deg);}
+  .expand-panel{background:var(--ost-off-white);padding:16px 20px;border-bottom:1px solid var(--line);}
   .eval-score-card{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:13px;}
   .eval-score-card:last-child{border-bottom:none;}
   .chip-row{display:flex;gap:6px;flex-wrap:wrap;}
@@ -273,6 +266,10 @@
     .startup-header-info h2{font-size:16px;white-space:normal;}
     .startup-header-actions{width:100%;order:3;}
     .header-action-btn{flex:1;justify-content:center;}
+    .deck-modal-backdrop{padding:0;}
+    .deck-modal{width:100%;height:100%;border-radius:0;}
+    .deck-modal-head .btn-label, .deck-modal-head .deck-modal-title-text{display:none;}
+    .deck-modal-head{padding:10px 12px;}
   }
 </style>
 </head>
@@ -1227,7 +1224,7 @@ function mapCsvRow(row){
 /* ============ RENDER ROOT ============ */
 function render(){
   const app = document.getElementById('app');
-  if(S.loading){ app.innerHTML = '<div class="center-screen"><div class="mono" style="color:var(--muted)">Loading deal room…</div></div>'; return; }
+  if(S.loading){ app.innerHTML = '<div class="center-screen"><div class="mono" style="color:var(--muted)">Loading…</div></div>'; return; }
 
   if(S.view === 'landing'){ app.innerHTML = renderLanding(); attachLanding(); return; }
   if(S.view === 'admin' && !S.adminAuthed){ app.innerHTML = renderAdminGate(); attachAdminGate(); return; }
@@ -1253,7 +1250,7 @@ function topbar(rightHtml){
       ${OST_LOGO_MARK}
       <div>
         <div class="brand-name">Open Startup</div>
-        <div class="brand-tag">Pre-Seed Evaluation Platform</div>
+        <div class="brand-tag">Evaluation Platform</div>
       </div>
     </div>
     <div class="who">${rightHtml}</div>
@@ -1271,7 +1268,7 @@ function renderLanding(){
     <div class="center-screen">
       <div class="card">
         <h2>Welcome</h2>
-        <p class="sub">Choose how you're accessing the deal room.</p>
+        <p class="sub">Choose how you're accessing the platform.</p>
         <div class="role-pick">
           <button class="role-btn" id="goAdmin">
             <div class="role-icon"><i class="ph-fill ph-shield-check"></i></div>
@@ -1299,7 +1296,6 @@ function attachLanding(){
 
 /* ============ ADMIN GATE ============ */
 function renderAdminGate(){
-  const hasCode = !!localStorage_stub_flag(); // placeholder, actual check done async below via S.adminCodeSet
   return `
   ${topbar('')}
   <div class="center-screen">
@@ -1316,7 +1312,6 @@ function renderAdminGate(){
     </div>
   </div>`;
 }
-function localStorage_stub_flag(){ return true; }
 
 async function attachAdminGate(){
   document.getElementById('backHome').onclick = ()=>{ S.view='landing'; render(); };
@@ -1849,14 +1844,22 @@ function categoryTotal(row, cat){
 
 function renderAdminResults(){
   if(!S.startups.length) return `<div class="empty"><i class="ph ph-chart-bar"></i>No startups yet.</div>`;
+  const quadTab = S.adminResultsQuadrant || 'all';
+  const visibleStartups = S.startups.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
+  const countFor = (key) => S.startups.filter(s=>quadrantKeyOf(s)===key).length;
   return `
   <div class="section-title">Results</div>
   <p class="section-sub">Averaged across all evaluators who've submitted a score. Click a row to see individual scores, Go/No-Go calls, and comments.</p>
+  <div class="row" style="gap:6px;margin-bottom:16px;flex-wrap:wrap;">
+    <button class="tab-pill ${quadTab==='all'?'active':''}" data-results-quad-filter="all">All (${S.startups.length})</button>
+    ${QUADRANTS.map(q=>`<button class="tab-pill ${quadTab===q.key?'active':''}" data-results-quad-filter="${q.key}">${esc(q.label)} (${countFor(q.key)})</button>`).join('')}
+  </div>
+  ${visibleStartups.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Startup</th><th>Type</th><th>Scores in</th><th>Go / No-Go</th><th>Avg total</th></tr></thead>
+      <thead><tr><th></th><th>Startup</th><th>Track</th><th>Type</th><th>Scores in</th><th>Go / No-Go</th><th>Avg total</th></tr></thead>
       <tbody>
-        ${S.startups.map(s=>{
+        ${visibleStartups.map(s=>{
           const rubric = getRubric(s);
           const rows = scoresForStartup(s.id);
           const maxTotal = rubric ? rubricMaxTotal(rubric) : null;
@@ -1866,13 +1869,15 @@ function renderAdminResults(){
           const noGoCount = rows.filter(r=>r.goNoGo==='no-go').length;
           return `
           <tr class="agg-row" data-expand="${s.id}">
+            <td><i class="ph ph-caret-right expand-chevron" id="chevron-${s.id}"></i></td>
             <td><b>${esc(s.name)}</b></td>
+            <td>${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}</td>
             <td>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '<span style="color:var(--danger);">Not set</span>'}</td>
             <td>${rows.length} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
             <td>${goCount||noGoCount ? `<span class="chip" style="background:var(--accent-soft);color:var(--accent);">Go: ${goCount}</span> <span class="chip" style="background:var(--danger-soft);color:var(--danger);">No-Go: ${noGoCount}</span>` : '—'}</td>
             <td class="mono" style="font-weight:700;">${avgTotal===null?'—':avgTotal.toFixed(1)+' / '+maxTotal}</td>
           </tr>
-          <tr id="expand-${s.id}" style="display:none;"><td colspan="5" style="padding:0;">
+          <tr id="expand-${s.id}" style="display:none;"><td colspan="7" style="padding:0;">
             <div class="expand-panel">
               ${!rubric ? '<div class="su-meta">Set this startup\'s Type in the Startups tab to enable scoring.</div>' : rows.length===0 ? '<div class="su-meta">No scores submitted yet.</div>' : `
               ${rubric.map(cat=>{
@@ -1898,13 +1903,19 @@ function renderAdminResults(){
         }).join('')}
       </tbody>
     </table>
-  </div>`;
+  </div>`}`;
 }
 function attachAdminResults(){
+  document.querySelectorAll('[data-results-quad-filter]').forEach(b=>{
+    b.onclick = ()=>{ S.adminResultsQuadrant = b.dataset.resultsQuadFilter; render(); };
+  });
   document.querySelectorAll('[data-expand]').forEach(row=>{
     row.onclick = ()=>{
       const panel = document.getElementById('expand-'+row.dataset.expand);
-      panel.style.display = panel.style.display==='none' ? 'table-row' : 'none';
+      const chevron = document.getElementById('chevron-'+row.dataset.expand);
+      const opening = panel.style.display === 'none';
+      panel.style.display = opening ? 'table-row' : 'none';
+      if(chevron) chevron.classList.toggle('open', opening);
     };
   });
 }
@@ -2445,10 +2456,10 @@ function openDeckPreview(url){
     <div class="deck-modal-backdrop" id="deckModalBackdrop">
       <div class="deck-modal">
         <div class="deck-modal-head">
-          <span><i class="ph ph-file-text"></i> Pitch deck preview</span>
+          <span><i class="ph ph-file-text"></i> <span class="deck-modal-title-text">Pitch deck preview</span></span>
           <div class="row" style="gap:6px;">
-            <button class="icon-btn" id="deckModalAltViewer" title="If the deck doesn't render below, try this"><i class="ph ph-arrows-clockwise"></i> Try alternate viewer</button>
-            <a class="icon-btn" href="${escAttr(url)}" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out"></i> Open in new tab</a>
+            <button class="icon-btn" id="deckModalAltViewer" title="If the deck doesn't render below, try this"><i class="ph ph-arrows-clockwise"></i> <span class="btn-label">Try alternate viewer</span></button>
+            <a class="icon-btn" href="${escAttr(url)}" target="_blank" rel="noopener" title="Open in new tab"><i class="ph ph-arrow-square-out"></i> <span class="btn-label">Open in new tab</span></a>
             <button class="icon-btn" id="deckModalClose"><i class="ph ph-x"></i></button>
           </div>
         </div>
