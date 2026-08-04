@@ -1061,6 +1061,7 @@ let S = {
   evaluators: [],
   scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
   resources: [],         // admin-posted reference docs/links shown on the evaluator home page
+  selectedStartupIds: [],// checked rows in the admin Startups table, for bulk delete
   currentStartupId: null,
   scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
   evaluatorHome: true,   // true = show the evaluator landing dashboard first, false = show their assigned list
@@ -1507,15 +1508,21 @@ function renderAdminStartups(){
   const quadTab = S.adminStartupQuadrant || 'all';
   const visibleStartups = S.startups.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
   const countFor = (key) => S.startups.filter(s=>quadrantKeyOf(s)===key).length;
+  const selected = S.selectedStartupIds || [];
+  const visibleSelectedCount = visibleStartups.filter(s=>selected.includes(s.id)).length;
+  const allVisibleSelected = visibleStartups.length>0 && visibleSelectedCount===visibleStartups.length;
 
   return `
   <div class="row-between" style="margin-bottom:14px;">
     <div>
       <div class="section-title">Startups</div>
-      <p class="section-sub" style="margin-bottom:0;">${visibleStartups.length} of ${S.startups.length} shown</p>
+      <p class="section-sub" style="margin-bottom:0;">${visibleStartups.length} of ${S.startups.length} shown${selected.length?` &middot; ${selected.length} selected`:''}</p>
     </div>
-    <label class="btn btn-primary" for="csvInput"><i class="ph ph-upload-simple"></i> Upload F6S export</label>
-    <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
+    <div class="row" style="gap:8px;">
+      ${selected.length ? `<button class="btn btn-ghost" id="deleteSelectedBtn" style="color:var(--danger);border-color:var(--danger-soft);"><i class="ph ph-trash"></i> Delete selected (${selected.length})</button>` : ''}
+      <label class="btn btn-primary" for="csvInput"><i class="ph ph-upload-simple"></i> Upload F6S export</label>
+      <input type="file" id="csvInput" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" style="display:none;" />
+    </div>
   </div>
 
   <div class="row" style="gap:6px;margin-bottom:16px;flex-wrap:wrap;">
@@ -1526,10 +1533,11 @@ function renderAdminStartups(){
   ${S.startups.length === 0 ? `<div class="empty"><i class="ph ph-upload-simple"></i>No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : (visibleStartups.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Deck</th><th></th></tr></thead>
+      <thead><tr><th style="width:36px;"><input type="checkbox" id="selectAllStartups" ${allVisibleSelected?'checked':''}/></th><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Deck</th><th></th></tr></thead>
       <tbody>
         ${visibleStartups.map(s=>`
           <tr>
+            <td><input type="checkbox" data-select-startup="${s.id}" ${selected.includes(s.id)?'checked':''}/></td>
             <td><b>${esc(s.name)}</b><div class="su-meta">${esc(s.oneLiner||'')}</div></td>
             <td>${esc(s.sector||'—')}</td>
             <td>
@@ -1560,8 +1568,46 @@ function renderAdminStartups(){
 
 function attachAdminStartups(){
   document.querySelectorAll('[data-quad-filter]').forEach(b=>{
-    b.onclick = ()=>{ S.adminStartupQuadrant = b.dataset.quadFilter; render(); };
+    b.onclick = ()=>{ S.adminStartupQuadrant = b.dataset.quadFilter; S.selectedStartupIds = []; render(); };
   });
+
+  const quadTab = S.adminStartupQuadrant || 'all';
+  const visibleStartups = S.startups.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
+
+  const selectAllBox = document.getElementById('selectAllStartups');
+  if(selectAllBox){
+    selectAllBox.onchange = ()=>{
+      const visibleIds = visibleStartups.map(s=>s.id);
+      if(selectAllBox.checked){
+        S.selectedStartupIds = Array.from(new Set([...(S.selectedStartupIds||[]), ...visibleIds]));
+      } else {
+        S.selectedStartupIds = (S.selectedStartupIds||[]).filter(id=>!visibleIds.includes(id));
+      }
+      render();
+    };
+  }
+  document.querySelectorAll('[data-select-startup]').forEach(cb=>{
+    cb.onchange = ()=>{
+      const id = cb.dataset.selectStartup;
+      const cur = S.selectedStartupIds||[];
+      S.selectedStartupIds = cb.checked ? [...cur, id] : cur.filter(x=>x!==id);
+      render();
+    };
+  });
+  const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+  if(deleteSelectedBtn){
+    deleteSelectedBtn.onclick = async ()=>{
+      const ids = S.selectedStartupIds || [];
+      if(!ids.length) return;
+      if(!confirm(`Delete ${ids.length} selected startup${ids.length===1?'':'s'}? This will not delete existing scores.`)) return;
+      await Promise.all(ids.map(id => docDelete(STARTUPS_COLLECTION, id)));
+      S.startups = S.startups.filter(s=>!ids.includes(s.id));
+      S.selectedStartupIds = [];
+      toast('Deleted');
+      render();
+    };
+  }
+
   const csvInput = document.getElementById('csvInput');
   if(csvInput){
     csvInput.onchange = (e)=>{
@@ -1685,6 +1731,7 @@ function attachAdminStartups(){
       if(!confirm('Delete this startup? This will not delete existing scores.')) return;
       await docDelete(STARTUPS_COLLECTION, b.dataset.deleteStartup);
       S.startups = S.startups.filter(s=>s.id !== b.dataset.deleteStartup);
+      S.selectedStartupIds = (S.selectedStartupIds||[]).filter(id=>id!==b.dataset.deleteStartup);
       render();
     };
   });
