@@ -113,6 +113,11 @@
   .scoring-overview-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));gap:14px;}
   .scoring-overview-item{display:flex;align-items:flex-start;gap:10px;}
   .scoring-overview-icon{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px;}
+  .stat-card{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow-xs);}
+  .stat-icon{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+  .stat-value{font-size:24px;font-weight:900;line-height:1.1;}
+  .stat-label{font-size:12px;color:var(--muted);margin-top:2px;}
   .scoring-overview-label{font-weight:600;font-size:13.5px;}
   .role-title{font-weight:600;font-size:14.5px;}
   .role-desc{font-size:12.5px;color:var(--muted);}
@@ -1086,7 +1091,7 @@ let S = {
   view: 'landing',       // landing | admin | evaluator
   adminAuthed: false,
   evaluator: null,       // logged-in evaluator object
-  adminTab: 'startups',
+  adminTab: 'dashboard',
   assignBoxOpenFor: null,  // evaluator id whose assign panel is open, survives re-renders
   assignSearchQuery: '',
   startups: [],
@@ -1422,12 +1427,14 @@ function renderAdminShell(){
   return `
   ${topbar(`<b>Admin</b><button class="logout" id="logoutBtn">Log out</button>`)}
   <div class="tabs">
+    <button class="tab ${S.adminTab==='dashboard'?'active':''}" data-tab="dashboard">Dashboard</button>
     <button class="tab ${S.adminTab==='startups'?'active':''}" data-tab="startups">Startups</button>
     <button class="tab ${S.adminTab==='evaluators'?'active':''}" data-tab="evaluators">Evaluators</button>
     <button class="tab ${S.adminTab==='results'?'active':''}" data-tab="results">Results</button>
     <button class="tab ${S.adminTab==='resources'?'active':''}" data-tab="resources">Resources</button>
   </div>
   <div class="content">
+    ${S.adminTab==='dashboard' ? renderAdminDashboard() : ''}
     ${S.adminTab==='startups' ? renderAdminStartups() : ''}
     ${S.adminTab==='evaluators' ? renderAdminEvaluators() : ''}
     ${S.adminTab==='results' ? renderAdminResults() : ''}
@@ -1441,10 +1448,132 @@ function attachAdminShell(){
   document.querySelectorAll('.tab').forEach(t=>{
     t.onclick = ()=>{ S.adminTab = t.dataset.tab; S.csvPreview=null; render(); };
   });
+  if(S.adminTab==='dashboard') attachAdminDashboard();
   if(S.adminTab==='startups') attachAdminStartups();
   if(S.adminTab==='evaluators') attachAdminEvaluators();
   if(S.adminTab==='results') attachAdminResults();
   if(S.adminTab==='resources') attachAdminResources();
+}
+
+/* ---- Admin: Dashboard tab ---- */
+function renderAdminDashboard(){
+  const startups = S.startups;
+  const total = startups.length;
+
+  if(total === 0){
+    return `<div class="empty"><i class="ph ph-chart-bar"></i>No startups yet. Upload a CSV from the Startups tab to see your dashboard.</div>`;
+  }
+
+  const preSeedCount = startups.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
+  const seedCount = startups.filter(s=>s.track==='seed').length;
+  const techCount = startups.filter(s=>s.type==='tech-enabled').length;
+  const deepCount = startups.filter(s=>s.type==='deeptech').length;
+  const noTypeCount = startups.filter(s=>!s.type).length;
+
+  const assignedIds = new Set();
+  S.evaluators.forEach(e=>e.assignedStartupIds.forEach(id=>assignedIds.add(id)));
+  const unassignedCount = startups.filter(s=>!assignedIds.has(s.id)).length;
+  const assignedPct = total ? ((total-unassignedCount)/total*100) : null;
+
+  let totalPairs = 0, scoredPairs = 0;
+  S.evaluators.forEach(ev=>{
+    ev.assignedStartupIds.forEach(suId=>{
+      totalPairs++;
+      if(S.scores[ev.id+'::'+suId]) scoredPairs++;
+    });
+  });
+  const scoringPct = totalPairs ? (scoredPairs/totalPairs*100) : null;
+
+  const allScores = Object.values(S.scores);
+  const goCount = allScores.filter(sc=>sc.goNoGo==='go').length;
+  const noGoCount = allScores.filter(sc=>sc.goNoGo==='no-go').length;
+  const noCallCount = allScores.length - goCount - noGoCount;
+
+  const countryCounts = {};
+  startups.forEach(s=>{ const c = s.country ? s.country.split(',').pop().trim() : 'Unknown'; countryCounts[c] = (countryCounts[c]||0)+1; });
+  const countriesSorted = Object.entries(countryCounts).sort((a,b)=>b[1]-a[1]);
+
+  const deckCount = startups.filter(s=>s.deckOverride || s.decks).length;
+  const richDataCount = startups.filter(s=>s.application).length; // loaded this session only, so this is a lower bound
+
+  const evalProgress = S.evaluators.map(ev=>{
+    const assigned = ev.assignedStartupIds.length;
+    const scored = ev.assignedStartupIds.filter(id=>S.scores[ev.id+'::'+id]).length;
+    return { name: ev.name, assigned, scored };
+  }).sort((a,b)=> (b.assigned-b.scored) - (a.assigned-a.scored));
+
+  const statCard = (icon, value, label, tone) => `
+    <div class="stat-card">
+      <div class="stat-icon" style="${tone?`background:${tone.bg};color:${tone.fg};`:''}"><i class="ph-fill ${icon}"></i></div>
+      <div>
+        <div class="stat-value">${value}</div>
+        <div class="stat-label">${esc(label)}</div>
+      </div>
+    </div>`;
+
+  return `
+  <div class="section-title">Dashboard</div>
+  <p class="section-sub">Overview across all tracks and types.</p>
+
+  <div class="stat-grid" style="margin-bottom:20px;">
+    ${statCard('ph-buildings', total, 'Total startups')}
+    ${statCard('ph-users-three', S.evaluators.length, 'Evaluators')}
+    ${statCard('ph-check-circle', scoringPct===null?'—':scoringPct.toFixed(0)+'%', 'Scoring complete ('+scoredPairs+'/'+totalPairs+')', scoringPct!==null && scoringPct<50 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : null)}
+    ${statCard('ph-warning', unassignedCount, 'Unassigned startups', unassignedCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : null)}
+  </div>
+
+  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;">
+    <div class="card" style="max-width:none;flex:1;min-width:280px;padding:20px 22px;">
+      <h3 style="margin-top:0;font-size:14.5px;">By track &amp; type</h3>
+      <div class="kv">
+        <div>Pre-Seed</div><div><b>${preSeedCount}</b> (${total?Math.round(preSeedCount/total*100):0}%)</div>
+        <div>Seed</div><div><b>${seedCount}</b> (${total?Math.round(seedCount/total*100):0}%)</div>
+        <div>Tech-enabled</div><div><b>${techCount}</b> (${total?Math.round(techCount/total*100):0}%)</div>
+        <div>Deeptech</div><div><b>${deepCount}</b> (${total?Math.round(deepCount/total*100):0}%)</div>
+        ${noTypeCount ? `<div style="color:var(--danger);">Type not set</div><div style="color:var(--danger);"><b>${noTypeCount}</b> — can't be scored yet</div>` : ''}
+      </div>
+      <div class="row" style="gap:6px;margin-top:14px;flex-wrap:wrap;">
+        ${QUADRANTS.map(q=>`<button class="tab-pill" data-dash-quad="${q.key}">${esc(q.label)} (${startups.filter(s=>quadrantKeyOf(s)===q.key).length})</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="max-width:none;flex:1;min-width:280px;padding:20px 22px;">
+      <h3 style="margin-top:0;font-size:14.5px;">Go / No-Go calls so far</h3>
+      <div class="kv">
+        <div>Go</div><div><b style="color:var(--accent-dark);">${goCount}</b></div>
+        <div>No-Go</div><div><b style="color:var(--danger);">${noGoCount}</b></div>
+        <div>Scored, no call yet</div><div><b>${noCallCount}</b></div>
+      </div>
+      <h3 style="font-size:14.5px;margin:18px 0 10px;">Data completeness</h3>
+      <div class="kv">
+        <div>Have a deck link</div><div><b>${deckCount}</b> / ${total}</div>
+        <div>Application loaded this session</div><div><b>${richDataCount}</b> / ${total}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;">
+    <div class="card" style="max-width:none;flex:1;min-width:260px;padding:20px 22px;">
+      <h3 style="margin-top:0;font-size:14.5px;">Countries (${countriesSorted.length})</h3>
+      <div class="kv">
+        ${countriesSorted.map(([c,n])=>`<div>${esc(c)}</div><div><b>${n}</b></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card" style="max-width:none;flex:1;min-width:260px;padding:20px 22px;">
+      <h3 style="margin-top:0;font-size:14.5px;">Evaluator progress</h3>
+      ${evalProgress.length===0 ? `<p class="su-meta">No evaluators added yet.</p>` : `
+      <div class="kv">
+        ${evalProgress.map(e=>`<div>${esc(e.name)}</div><div><b>${e.scored}</b> / ${e.assigned} scored</div>`).join('')}
+      </div>`}
+    </div>
+  </div>
+  `;
+}
+function attachAdminDashboard(){
+  document.querySelectorAll('[data-dash-quad]').forEach(b=>{
+    b.onclick = ()=>{ S.adminTab = 'startups'; S.adminStartupQuadrant = b.dataset.dashQuad; render(); };
+  });
 }
 
 /* ---- Admin: Resources tab (shown on the evaluator home page) ---- */
@@ -2752,7 +2881,7 @@ document.addEventListener('click', (e)=>{
     render();
   } else if(S.adminAuthed){
     S.view = 'admin';
-    S.adminTab = 'startups';
+    S.adminTab = 'dashboard';
     S.csvPreview = null;
     render();
   } else {
