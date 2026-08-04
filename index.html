@@ -2191,7 +2191,7 @@ function renderEvaluatorDetail(){
       <div class="startup-header-actions">
         ${s.website ? `<a class="header-action-btn" href="${escAttr(s.website)}" target="_blank" rel="noopener"><i class="ph ph-globe"></i> Website</a>` : ''}
         ${deckUrl ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(deckUrl)}"><i class="ph ph-file-text"></i> View deck</button>`
-                   : (s.decks ? `<a class="header-action-btn" href="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'#')}" target="_blank" rel="noopener" title="F6S link, may require a login"><i class="ph ph-file-text"></i> Deck (F6S)</a>` : '')}
+                   : (s.decks ? `<button class="header-action-btn primary" data-deck-preview="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'')}" data-prefer-viewer="1"><i class="ph ph-file-text"></i> View deck</button>` : '')}
       </div>
     </div>`;
 
@@ -2436,40 +2436,45 @@ function deckDisplayHtml(s){
   if(s.decks){
     const m = String(s.decks).match(/(https?:\/\/\S+)/);
     if(m){
-      // Plain new-tab link, not the preview modal — this one usually needs an F6S login, so
-      // promising an in-app preview here would just show the same "not authorized" message.
-      return `<a href="${escAttr(m[1])}" target="_blank" rel="noopener">F6S deck link <i class="ph ph-arrow-square-out" style="font-size:12px;"></i></a> <span class="su-meta" style="display:block;">May require an F6S login, ask the admin to add a re-hosted link if it doesn't open.</span>`;
+      // F6S blocks direct iframe embedding, but the file itself downloads fine, so route
+      // through the preview modal defaulting to Google's viewer, which fetches it
+      // server-side and isn't subject to F6S's anti-framing restriction.
+      return `<a href="${escAttr(m[1])}" data-deck-preview="${escAttr(m[1])}" data-prefer-viewer="1" rel="noopener">F6S deck link <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
     }
     return esc(s.decks);
   }
   return null;
 }
 
-function openDeckPreview(url){
+function openDeckPreview(url, preferViewer){
   let root = document.getElementById('deckModalRoot');
   if(!root){
     root = document.createElement('div');
     root.id = 'deckModalRoot';
     document.body.appendChild(root);
   }
+  const viewerUrl = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(url);
+  const startSrc = preferViewer ? viewerUrl : url;
   root.innerHTML = `
     <div class="deck-modal-backdrop" id="deckModalBackdrop">
       <div class="deck-modal">
         <div class="deck-modal-head">
           <span><i class="ph ph-file-text"></i> <span class="deck-modal-title-text">Pitch deck preview</span></span>
           <div class="row" style="gap:6px;">
-            <button class="icon-btn" id="deckModalAltViewer" title="If the deck doesn't render below, try this"><i class="ph ph-arrows-clockwise"></i> <span class="btn-label">Try alternate viewer</span></button>
+            <button class="icon-btn" id="deckModalToggleView" title="Switch between the direct file and Google's viewer"><i class="ph ph-arrows-clockwise"></i> <span class="btn-label">Switch viewer</span></button>
             <a class="icon-btn" href="${escAttr(url)}" target="_blank" rel="noopener" title="Open in new tab"><i class="ph ph-arrow-square-out"></i> <span class="btn-label">Open in new tab</span></a>
             <button class="icon-btn" id="deckModalClose"><i class="ph ph-x"></i></button>
           </div>
         </div>
-        <iframe id="deckModalFrame" src="${escAttr(url)}"></iframe>
+        <iframe id="deckModalFrame" src="${escAttr(startSrc)}"></iframe>
       </div>
     </div>`;
   document.getElementById('deckModalClose').onclick = closeDeckPreview;
   document.getElementById('deckModalBackdrop').onclick = (e)=>{ if(e.target.id==='deckModalBackdrop') closeDeckPreview(); };
-  document.getElementById('deckModalAltViewer').onclick = ()=>{
-    document.getElementById('deckModalFrame').src = 'https://docs.google.com/viewer?embedded=true&url=' + encodeURIComponent(url);
+  let usingViewer = !!preferViewer;
+  document.getElementById('deckModalToggleView').onclick = ()=>{
+    usingViewer = !usingViewer;
+    document.getElementById('deckModalFrame').src = usingViewer ? viewerUrl : url;
   };
 }
 function closeDeckPreview(){
@@ -2598,7 +2603,7 @@ document.addEventListener('click', (e)=>{
   const deckEl = e.target.closest('[data-deck-preview]');
   if(!deckEl) return;
   e.preventDefault();
-  openDeckPreview(deckEl.dataset.deckPreview);
+  openDeckPreview(deckEl.dataset.deckPreview, deckEl.dataset.preferViewer === '1');
 });
 
 /* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
