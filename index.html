@@ -315,6 +315,27 @@ const db = getFirestore(firebaseApp);
 const COLLECTION = 'dealroom';           // small shared settings: evaluators, admin code, resources
 const STARTUPS_COLLECTION = 'dealroom_startups'; // one Firestore document PER startup (avoids the 1MB/doc limit)
 const SCORES_COLLECTION = 'dealroom_scores';     // one Firestore document PER evaluator+startup score
+const STARTUP_QA_COLLECTION = 'dealroom_startup_qa'; // the ~85-question application data, ~86% of a startup's size —
+                                                       // stored separately and fetched only when a startup is actually opened,
+                                                       // so list/table views don't have to download it for every startup every time.
+
+// Strips the heavy application Q&A out of a startup object before saving the lightweight
+// summary doc, and saves the Q&A separately (only if it exists) so list views stay fast.
+async function saveStartupSummary(startup){
+  const { application, ...summary } = startup;
+  await docSave(STARTUPS_COLLECTION, startup.id, summary);
+  if(application && application.qa){
+    await docSave(STARTUP_QA_COLLECTION, startup.id, application.qa);
+  }
+}
+
+// Fetches a startup's Q&A data on demand (once per session — cached in memory afterward
+// since we merge it directly onto the startup object in S.startups).
+async function ensureStartupQaLoaded(startup){
+  if(startup.application) return; // already loaded this session
+  const qa = await docGet(STARTUP_QA_COLLECTION, startup.id);
+  if(qa) startup.application = { qa };
+}
 
 /* ============ STORAGE HELPERS (backed by Firestore) ============ */
 const K = {
@@ -356,6 +377,14 @@ async function docDelete(collectionName, id){
     return true;
   }catch(e){ console.error('doc delete failed', collectionName, id, e); return false; }
 }
+async function docGet(collectionName, id){
+  try{
+    const snap = await getDoc(doc(db, collectionName, id));
+    if(!snap.exists()) return null;
+    const data = snap.data();
+    return data && data.json ? JSON.parse(data.json) : null;
+  }catch(e){ console.error('doc get failed', collectionName, id, e); return null; }
+}
 // Returns { id: parsedValue } for every document in the collection
 async function docListAsMap(collectionName){
   const out = {};
@@ -378,7 +407,7 @@ async function migrateToPerDocumentStorageIfNeeded(){
     if(Object.keys(existingStartups).length === 0){
       const oldStartups = await sget(K.startups, []);
       if(oldStartups.length){
-        await Promise.all(oldStartups.map(su => docSave(STARTUPS_COLLECTION, su.id, su)));
+        await Promise.all(oldStartups.map(su => saveStartupSummary(su)));
       }
     }
     const existingScores = await docListAsMap(SCORES_COLLECTION);
@@ -1090,6 +1119,16 @@ async function loadAll(){
   await migrateToPerDocumentStorageIfNeeded();
   const startupsMap = await docListAsMap(STARTUPS_COLLECTION);
   S.startups = Object.values(startupsMap).sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+
+  // One-time cleanup: startups saved before the Q&A-splitting fix still have the heavy
+  // application data embedded in their summary doc. Split those out now so every future
+  // load stays fast, not just new imports going forward.
+  const needsSplit = S.startups.filter(s => s.application);
+  if(needsSplit.length){
+    await Promise.all(needsSplit.map(s => saveStartupSummary(s)));
+    // keep the already-fetched Q&A in memory this session (no need to re-fetch immediately)
+  }
+
   S.evaluators = await sget(K.evaluators, []);
   S.scores = await docListAsMap(SCORES_COLLECTION);
   S.resources = await sget(K.resources, []);
@@ -1697,7 +1736,7 @@ function attachAdminStartups(){
     sel.onchange = async ()=>{
       const startup = S.startups.find(s=>s.id===sel.dataset.setType);
       startup.type = sel.value;
-      await docSave(STARTUPS_COLLECTION, startup.id, startup);
+      await saveStartupSummary(startup);
       toast('Type updated');
     };
   });
@@ -1705,7 +1744,7 @@ function attachAdminStartups(){
     sel.onchange = async ()=>{
       const startup = S.startups.find(s=>s.id===sel.dataset.setTrack);
       startup.track = sel.value;
-      await docSave(STARTUPS_COLLECTION, startup.id, startup);
+      await saveStartupSummary(startup);
       toast('Track updated');
     };
   });
@@ -1716,7 +1755,7 @@ function attachAdminStartups(){
   if(confirmBtn){
     confirmBtn.onclick = async ()=>{
       const newOnes = S.csvPreview.map(r => ({...r, id: uid('su'), memo:''}));
-      await Promise.all(newOnes.map(su => docSave(STARTUPS_COLLECTION, su.id, su)));
+      await Promise.all(newOnes.map(su => saveStartupSummary(su)));
       S.startups = [...S.startups, ...newOnes];
       S.csvPreview = null;
       toast('Startups saved');
@@ -2212,7 +2251,13 @@ function attachEvaluatorShell(){
     b.onclick = ()=>{ S.evalQuadrant = b.dataset.evalQuadFilter; render(); };
   });
   document.querySelectorAll('[data-open]').forEach(card=>{
-    card.onclick = ()=>{ S.currentStartupId = card.dataset.open; S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null; render(); };
+    card.onclick = async ()=>{
+      const s = S.startups.find(x=>x.id===card.dataset.open);
+      S.currentStartupId = card.dataset.open;
+      S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null;
+      if(s) await ensureStartupQaLoaded(s);
+      render();
+    };
   });
 }
 
@@ -2606,7 +2651,7 @@ function openDeckLinkEditor(startup){
   document.getElementById('deckEditBackdrop').onclick = (e)=>{ if(e.target.id==='deckEditBackdrop') close(); };
   document.getElementById('saveDeckLink').onclick = async ()=>{
     startup.deckOverride = document.getElementById('deckLinkInput').value.trim();
-    await docSave(STARTUPS_COLLECTION, startup.id, startup);
+    await saveStartupSummary(startup);
     toast('Deck link saved');
     close();
     render();
