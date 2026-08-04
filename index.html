@@ -1790,6 +1790,7 @@ function attachAdminEvaluators(){
   const openEvId = S.assignBoxOpenFor;
   if(openEvId){
     const ev = S.evaluators.find(e=>e.id===openEvId);
+    if(!ev){ S.assignBoxOpenFor = null; return; }
     const searchInput = document.getElementById('assignSearch-'+openEvId);
     if(searchInput){
       // Filter client-side without a full re-render, so typing never loses focus.
@@ -2208,6 +2209,17 @@ function debounceAutosave(ev, s, draft){
 function renderEvaluatorDetail(){
   const ev = S.evaluator;
   const s = S.startups.find(x=>x.id===S.currentStartupId);
+
+  if(!s){
+    return `
+    ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
+    <div class="content">
+      <button class="back-link back-row" id="backList">&larr; Back to your list</button>
+      <div class="type-warning">This startup couldn't be found, it may have been removed or reassigned. Go back to your list and try again.</div>
+    </div>
+    <div class="toast" id="toast"></div>`;
+  }
+
   const rubric = getRubric(s);
 
   if(!rubric){
