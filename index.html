@@ -1495,7 +1495,7 @@ function renderAdminStartups(){
   ${S.startups.length === 0 ? `<div class="empty"><i class="ph ph-upload-simple"></i>No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : (visibleStartups.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Memo</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Memo</th><th>Deck</th><th></th></tr></thead>
       <tbody>
         ${visibleStartups.map(s=>`
           <tr>
@@ -1515,8 +1515,10 @@ function renderAdminStartups(){
             </td>
             <td>${esc(s.country||'—')}</td>
             <td>${s.memo ? '<span class="pill pill-done">Written</span>' : '<span class="pill pill-pending">Empty</span>'}</td>
+            <td>${s.deckOverride ? '<span class="pill pill-done">Re-hosted</span>' : (s.decks ? '<span class="pill pill-pending">F6S link only</span>' : '<span class="pill pill-pending">None</span>')}</td>
             <td>
               <button class="icon-btn" data-edit-memo="${s.id}"><i class="ph ph-note-pencil"></i> Edit memo</button>
+              <button class="icon-btn" data-edit-deck="${s.id}"><i class="ph ph-link"></i> Edit deck link</button>
               <button class="icon-btn danger" data-delete-startup="${s.id}"><i class="ph ph-trash"></i> Delete</button>
             </td>
           </tr>`).join('')}
@@ -1680,6 +1682,34 @@ function attachAdminStartups(){
         holder.innerHTML = '';
       };
       document.getElementById('closeMemo').onclick = ()=>{ holder.innerHTML=''; };
+    };
+  });
+  document.querySelectorAll('[data-edit-deck]').forEach(b=>{
+    b.onclick = ()=>{
+      const startup = S.startups.find(s=>s.id===b.dataset.editDeck);
+      const holder = document.getElementById('memoEditor');
+      holder.innerHTML = `
+        <div class="card" style="max-width:640px;margin-top:20px;">
+          <h2 style="font-size:17px;">Deck link — ${esc(startup.name)}</h2>
+          <p class="sub">F6S's own file links require an F6S login and won't preview for evaluators. Download the deck once and re-host it somewhere public (Google Drive with "anyone with the link", Dropbox, etc.), then paste that link here, it'll be used instead.</p>
+          ${startup.decks ? `<p class="su-meta" style="margin-bottom:14px;">Original F6S reference: ${esc(startup.decks)}</p>` : ''}
+          <div class="field">
+            <label>Re-hosted deck link</label>
+            <input id="deckLinkInput" placeholder="https://drive.google.com/..." value="${escAttr(startup.deckOverride||'')}"/>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary" id="saveDeckLink">Save deck link</button>
+            <button class="btn btn-ghost" id="closeDeckLink">Close</button>
+          </div>
+        </div>`;
+      document.getElementById('saveDeckLink').onclick = async ()=>{
+        startup.deckOverride = document.getElementById('deckLinkInput').value.trim();
+        await docSave(STARTUPS_COLLECTION, startup.id, startup);
+        toast('Deck link saved');
+        holder.innerHTML = '';
+        render();
+      };
+      document.getElementById('closeDeckLink').onclick = ()=>{ holder.innerHTML=''; };
     };
   });
 }
@@ -2263,7 +2293,7 @@ function renderEvaluatorDetail(){
               <div>Type</div><div>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '—'}</div>
               <div>Country</div><div>${esc(s.country||'—')}</div>
               <div>Website</div><div>${s.website ? asLink(s.website) : '—'}</div>
-              <div>Pitch deck</div><div>${s.decks ? (linkFromMixedText(s.decks) || esc(s.decks)) : '—'}</div>
+              <div>Pitch deck</div><div>${deckDisplayHtml(s) || '—'}</div>
             </div>
           </div>
           <div class="info-block">
@@ -2279,7 +2309,7 @@ function renderEvaluatorDetail(){
           <div class="info-block">
             <h4>Resources</h4>
             <div class="kv">
-              ${s.decks ? `<div>Pitch deck</div><div>${linkFromMixedText(s.decks) || esc(s.decks)}</div>` : ''}
+              ${deckDisplayHtml(s) ? `<div>Pitch deck</div><div>${deckDisplayHtml(s)}</div>` : ''}
               ${s.videos ? `<div>Videos</div><div>${esc(s.videos)}</div>` : ''}
             </div>
           </div>` : ''}
@@ -2414,14 +2444,22 @@ function asLink(value){
   return `<a href="${escAttr(href)}" target="_blank" rel="noopener">${esc(value)}</a>`;
 }
 
-// F6S fields like "Decks" often look like "Company Deck - https://...", pull the URL out
-// so it renders as a real clickable link instead of plain unclickable text.
-function linkFromMixedText(value){
-  if(!value) return null;
-  const m = String(value).match(/(https?:\/\/\S+)/);
-  if(!m) return null;
-  const label = String(value).replace(m[1], '').replace(/[-–—:]\s*$/, '').trim() || 'Open link';
-  return `<a href="${escAttr(m[1])}" data-deck-preview="${escAttr(m[1])}" rel="noopener">${esc(label)} <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
+// Prefer an admin-provided re-hosted deck link (previewable) over the raw F6S link
+// (which requires an F6S login and won't preview for evaluators).
+function deckDisplayHtml(s){
+  if(s.deckOverride){
+    return `<a href="${escAttr(s.deckOverride)}" data-deck-preview="${escAttr(s.deckOverride)}" rel="noopener">Open deck <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
+  }
+  if(s.decks){
+    const m = String(s.decks).match(/(https?:\/\/\S+)/);
+    if(m){
+      // Plain new-tab link, not the preview modal — this one usually needs an F6S login, so
+      // promising an in-app preview here would just show the same "not authorized" message.
+      return `<a href="${escAttr(m[1])}" target="_blank" rel="noopener">F6S deck link <i class="ph ph-arrow-square-out" style="font-size:12px;"></i></a> <span class="su-meta" style="display:block;">May require an F6S login, ask the admin to add a re-hosted link if it doesn't open.</span>`;
+    }
+    return esc(s.decks);
+  }
+  return null;
 }
 
 function openDeckPreview(url){
