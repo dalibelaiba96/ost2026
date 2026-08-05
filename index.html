@@ -141,6 +141,8 @@
   .rubric-track-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
   .rubric-track-name{font-weight:700;font-size:15px;}
   .rubric-track-arrow{margin-left:auto;color:var(--muted);flex-shrink:0;}
+  .needs-attention-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:#fff;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);}
+  .needs-attention-row:hover{border-color:var(--accent);transform:translateX(2px);}
   .rubric-modal-table td{vertical-align:top;padding:12px 14px;}
   .rubric-modal-cat-cell{background:var(--ost-off-white);min-width:150px;vertical-align:middle !important;border-right:1px solid var(--line);}
   .rubric-modal-table th:nth-child(3), .rubric-modal-table td:nth-child(3),
@@ -2524,15 +2526,21 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
   const scoresByStartup = assigned.map(s=>S.scores[ev.id+'::'+s.id]);
   const partialCount = scoresByStartup.filter(sc=>sc && !sc.submitted).length;
   const pendingCount = assigned.length - scoredCount - partialCount;
-  const preSeedCount = assigned.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
-  const seedCount = assigned.filter(s=>s.track==='seed').length;
-  const techCount = assigned.filter(s=>s.type==='tech-enabled').length;
-  const deepCount = assigned.filter(s=>s.type==='deeptech').length;
 
   const myScores = scoresByStartup.filter(sc=>sc && sc.submitted);
   const goCount = myScores.filter(sc=>sc.goNoGo==='go').length;
   const noGoCount = myScores.filter(sc=>sc.goNoGo==='no-go').length;
   const noCallCount = myScores.length - goCount - noGoCount;
+
+  // Needs your attention: in-progress first (closest to done), then not-started, capped at 5
+  const needsAttention = assigned
+    .map(s=>({ s, own: S.scores[ev.id+'::'+s.id] }))
+    .filter(({own})=> !own || !own.submitted)
+    .sort((a,b)=>{
+      const rank = (o)=> o ? 0 : 1; // in-progress (has a draft) ranks before not-started
+      return rank(a.own) - rank(b.own);
+    })
+    .slice(0, 5);
 
   return `
   <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
@@ -2545,17 +2553,20 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
     </div>
 
     <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;">
-      <div style="flex:1;min-width:240px;">
-        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">By track &amp; type</h4>
-        ${segmentedBar([
-          {label:'Pre-Seed', value:preSeedCount, color:'var(--ost-navy)'},
-          {label:'Seed', value:seedCount, color:'var(--muted)'}
-        ])}
-        <div style="height:12px;"></div>
-        ${segmentedBar([
-          {label:'Tech-enabled', value:techCount, color:'var(--ost-navy)'},
-          {label:'Deeptech', value:deepCount, color:'var(--muted)'}
-        ])}
+      <div style="flex:1;min-width:260px;">
+        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">Needs your attention</h4>
+        ${needsAttention.length===0 ? `<p class="su-meta">Nothing left, everything's submitted.</p>` : `
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${needsAttention.map(({s,own})=>`
+            <div class="needs-attention-row" data-open-startup="${s.id}">
+              <span class="pill ${own?'pill-partial':'pill-notstarted'}" style="flex-shrink:0;">${own?'In progress':'Not started'}</span>
+              <span style="font-weight:600;font-size:13px;flex:1;">${esc(s.name)}</span>
+              <i class="ph ph-arrow-right" style="color:var(--muted);"></i>
+            </div>
+          `).join('')}
+        </div>
+        ${assigned.length - scoredCount > needsAttention.length ? `<p class="su-meta" style="margin-top:8px;">+ ${assigned.length - scoredCount - needsAttention.length} more still to go</p>` : ''}
+        `}
       </div>
       <div style="flex:1;min-width:240px;">
         <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">Your Go / No-Go calls</h4>
@@ -2705,6 +2716,15 @@ function attachEvaluatorShell(){
     card.onclick = async ()=>{
       const s = S.startups.find(x=>x.id===card.dataset.open);
       S.currentStartupId = card.dataset.open;
+      S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null;
+      if(s) await ensureStartupQaLoaded(s);
+      render();
+    };
+  });
+  document.querySelectorAll('[data-open-startup]').forEach(row=>{
+    row.onclick = async ()=>{
+      const s = S.startups.find(x=>x.id===row.dataset.openStartup);
+      S.currentStartupId = row.dataset.openStartup;
       S.scoringStep = 0; draftScore = null; expandedSub = null; expandedSubCatId = null;
       if(s) await ensureStartupQaLoaded(s);
       render();
