@@ -485,218 +485,289 @@ async function migrateToPerDocumentStorageIfNeeded(){
 
 /* ============ SCORING RUBRICS ============ */
 // Categories shared by both Deeptech and Tech-enabled at the Pre-Seed stage.
-const SHARED_CATEGORIES_PRESEED = [
-  {
+function preSeedTeamCategory(type){
+  const credentials = type === 'deeptech' ? {
+    key:'team_credentials', label:'Team credentials', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Demonstrable expertise in the specific science/engineering claimed (advanced degree, research background, or hands-on technical work), even without an industry track record'},
+      {raw:4, label:'Relevant scientific/technical experience, limited years or depth'},
+      {raw:3, label:'Somewhat relevant, transferable skills'},
+      {raw:2, label:'Limited scientific/technical experience or unrelated background'},
+      {raw:1, label:'Minimal or no relevant scientific/technical credentials'}
+    ]
+  } : {
+    key:'team_credentials', label:'Team credentials', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Strong, directly relevant experience (domain or technical), even if early-career'},
+      {raw:4, label:'Relevant experience, limited years or depth'},
+      {raw:3, label:'Somewhat relevant, transferable skills'},
+      {raw:2, label:'Limited experience or unrelated background'},
+      {raw:1, label:'Minimal or no relevant credentials'}
+    ]
+  };
+  return {
     id:'team', label:'1. Team Strength & Inclusion', maxPoints:25,
     subcriteria:[
-      {key:'founder_commitment', label:'Full-time founder commitment', maxPoints:5, anchors:[
-        {points:5, label:'All co-founders are full-time'},
-        {points:3, label:'Only the lead founder is full-time'},
-        {points:1, label:'All founders are part-time'},
-        {points:0, label:'No full-time founder commitment'}
+      {key:'founder_commitment', label:'Full-time founder commitment', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'All co-founders are full-time'},
+        {raw:4, label:'Most co-founders full-time, including lead'},
+        {raw:3, label:'Only the lead founder is full-time; others part-time with a clear timeline to transition'},
+        {raw:2, label:'Founders part-time but demonstrate meaningful, documented weekly commitment'},
+        {raw:1, label:'All founders part-time with no plan or timeline to go full-time'}
       ]},
-      {key:'team_size', label:'Team size & capacity', maxPoints:4, anchors:[
-        {points:4, label:'Team of 5 or more people'},
-        {points:3, label:'Team of 3-4'},
-        {points:2, label:'Team of 2'},
-        {points:1, label:'Solo founder'},
-        {points:0, label:'No operational team'}
+      {key:'team_size', label:'Team size & capacity', maxPoints:4, rawScale:true, anchors: type==='deeptech' ? [
+        {raw:5, label:'Team of 4 or more (incl. technical advisors/research collaborators)'},
+        {raw:4, label:'Team of 3'},
+        {raw:3, label:'Team of 2 (co-founding team)'},
+        {raw:2, label:'Solo founder actively recruiting or with committed collaborators'},
+        {raw:1, label:'Solo founder, no team-building plan'}
+      ] : [
+        {raw:5, label:'Team of 4 or more'},
+        {raw:4, label:'Team of 3'},
+        {raw:3, label:'Team of 2 (co-founding team)'},
+        {raw:2, label:'Solo founder actively recruiting or with committed collaborators'},
+        {raw:1, label:'Solo founder, no team-building plan'}
       ]},
-      {key:'female_team', label:'Female team members', maxPoints:2, anchors:[
-        {points:2, label:'\u226530% of the team are women'},
-        {points:1, label:'At least 1 woman on the team'},
-        {points:0, label:'No female team members'}
+      {key:'female_team', label:'Female team members', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'\u226550% of team are women'},
+        {raw:4, label:'30-49% of team are women'},
+        {raw:3, label:'At least 1 woman on the team'},
+        {raw:2, label:'Women present only in minor/informal roles'},
+        {raw:1, label:'No female team members'}
       ]},
-      {key:'women_leadership', label:'Women in leadership roles', maxPoints:2, anchors:[
-        {points:2, label:'At least one woman in a founder or executive role (CXO)'},
-        {points:1, label:'Women present but not in leadership'},
-        {points:0, label:'No women in leadership'}
+      {key:'women_leadership', label:'Women in leadership roles', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'Multiple women in founder/executive (CXO) roles'},
+        {raw:4, label:'At least one woman in a founder or executive role'},
+        {raw:3, label:'Women present in leadership-adjacent roles'},
+        {raw:2, label:'Women present but not in leadership'},
+        {raw:1, label:'No women in leadership'}
       ]},
-      {key:'youth', label:'Youth representation (<35)', maxPoints:2, anchors:[
-        {points:2, label:'\u226550% of the team is under 35 years old'},
-        {points:1, label:'Some team members under 35, but <50%'},
-        {points:0, label:'No team members under 35'}
+      {key:'youth', label:'Youth representation (<35)', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'\u226550% of team is under 35'},
+        {raw:4, label:'30-49% of team is under 35'},
+        {raw:3, label:'Some team members under 35, but <30%'},
+        {raw:2, label:'One team member under 35'},
+        {raw:1, label:'No team members under 35'}
       ]},
-      {key:'team_complementarity', label:'Team complementarity (via NLP)', maxPoints:5, anchors:[
-        {points:5, label:'Clear, well-balanced roles with complementary skills (e.g. tech, business, operations)'},
-        {points:4, label:'Mostly complementary roles, minor overlaps or gaps'},
-        {points:3, label:'Some differentiation, but roles are unclear or overlapping'},
-        {points:2, label:'Minimal complementarity or unclear responsibilities'},
-        {points:1, label:'All founders have similar profiles or unclear functions'},
-        {points:0, label:'No information provided or roles completely unclear'}
+      {key:'team_complementarity', label:'Team complementarity (via NLP)', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'Clear, well-balanced, complementary roles'},
+        {raw:4, label:'Mostly complementary, minor overlaps/gaps'},
+        {raw:3, label:'Some differentiation, but unclear/overlapping'},
+        {raw:2, label:'Minimal complementarity, unclear responsibilities'},
+        {raw:1, label:'Similar profiles / no info on roles'}
       ]},
-      {key:'team_credentials', label:'Team credentials', maxPoints:5, anchors:[
-        {points:5, label:'Strong, relevant experience in the sector; proven track record'},
-        {points:4, label:'Relevant experience, but limited in years or sector depth'},
-        {points:3, label:'Somewhat relevant background, transferable skills'},
-        {points:2, label:'Limited experience or unrelated background'},
-        {points:1, label:'Minimal experience; weak fit for the challenge'},
-        {points:0, label:'No relevant credentials or unclear background'}
-      ]}
+      credentials
     ]
-  },
-  {
-    id:'solution', label:'3. Solution Clarity & Impact', maxPoints:25,
-    subcriteria:[
-      {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:6, anchors:[
-        {points:6, label:'Problem is specific, urgent, and well-evidenced, with clear impact'},
-        {points:5, label:'Problem is clear and relevant but lacks urgency or context'},
-        {points:3, label:'Problem is understood but somewhat generic or missing real-world grounding'},
-        {points:2, label:'Problem is vague or overly broad'},
-        {points:1, label:'Problem is unclear or not articulated'},
-        {points:0, label:'No problem defined'}
-      ]},
-      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6, anchors:[
-        {points:6, label:'Clear, compelling, and specific UVP; strong reason why customers would choose this over others'},
-        {points:5, label:'UVP is clear and relevant, but less differentiated or lacks proof'},
-        {points:3, label:'UVP is present but somewhat generic or unclear'},
-        {points:2, label:'UVP is weak or does not clearly address customer pain points'},
-        {points:1, label:'UVP is vague or not meaningfully different from competitors'},
-        {points:0, label:'No UVP articulated'}
-      ]},
-      {key:'impact', label:'Social/environmental impact', maxPoints:4, anchors:[
-        {points:4, label:'Clearly aligned with 2 or more SDGs or significant, measurable impact'},
-        {points:2, label:'Aligned with at least 1 SDG or general mention of impact'},
-        {points:0, label:'No clear impact or not mentioned'}
-      ]},
-      {key:'scalability', label:'Solution scalability (via NLP)', maxPoints:4, anchors:[
-        {points:4, label:'High scalability with evidence of market adaptability or replication'},
-        {points:3, label:'Scalable with early signs or logical path to broader markets'},
-        {points:1, label:'Limited scalability; heavily localized or customized'},
-        {points:0, label:'No scalable path identified'}
-      ]},
-      {key:'competitive_positioning', label:'Competitive positioning (via NLP)', maxPoints:5, anchors:[
-        {points:5, label:'Clear understanding of direct competitors, with specific, compelling differentiation for each'},
-        {points:4, label:'Competitors identified and some differentiation, though not fully convincing'},
-        {points:3, label:'General awareness of competitors, but differentiation is vague or weak'},
-        {points:1, label:'Competitors mentioned, but no clear differentiation'},
-        {points:0, label:'No competitors identified or completely missing rationale'}
-      ]}
-    ]
-  },
-  {
-    id:'fundraising', label:'4. Fundraising & Financial Readiness', maxPoints:15,
-    subcriteria:[
-      {key:'amount_raised', label:'Amount raised to date', maxPoints:4, anchors:[
-        {points:4, label:'Has raised >$25K from credible external sources (angels, grants, accelerators)'},
-        {points:3, label:'Raised $10K-25K from external sources'},
-        {points:2, label:'Raised <$10K externally, or mostly from informal sources'},
-        {points:1, label:'Only founder, family & friends funding'},
-        {points:0, label:'No funding raised'}
-      ]},
-      {key:'funding_diversity', label:'Funding source diversity', maxPoints:3, anchors:[
-        {points:3, label:'Multiple types of capital raised'},
-        {points:2, label:'One main external source'},
-        {points:1, label:'Mostly informal sources (family/friends) with minimal external capital'},
-        {points:0, label:'No capital raised / only founder-funded'}
-      ]},
-      {key:'fundraising_ask', label:'Clarity on fundraising ask', maxPoints:5, anchors:[
-        {points:5, label:'Clear ask with amount, funding type, use of funds, and stage of round'},
-        {points:4, label:'Clear amount and stage, with partial use of funds specified'},
-        {points:3, label:'Amount stated, but unclear stage or use'},
-        {points:2, label:'Vague or inconsistent fundraising information'},
-        {points:1, label:'Only mentions "raising" with no detail'},
-        {points:0, label:'No fundraising information provided'}
-      ]},
-      {key:'fundraising_momentum', label:'Fundraising engagement / momentum', maxPoints:3, anchors:[
-        {points:3, label:'Active investor conversations or informal commitments in progress'},
-        {points:2, label:'Some outreach underway, but still early stage'},
-        {points:1, label:'No current investor engagement, but fundraising intent stated'},
-        {points:0, label:'Not currently fundraising / no activity mentioned'}
-      ]}
-    ]
-  },
-  {
-    id:'market_fit', label:'5. Market Fit & Expansion Strategy', maxPoints:20,
-    subcriteria:[
-      {key:'gtm_strategy', label:'Go-to-market strategy (via NLP)', maxPoints:10, anchors:[
-        {points:10, label:'Clear, phased GTM plan tailored to target segment(s); includes specific channels and milestones'},
-        {points:8, label:'GTM plan exists and makes sense, but lacks some structure or detail'},
-        {points:6, label:'General direction identified, but plan is vague or untested'},
-        {points:3, label:'Basic or generic GTM strategy; lacks market understanding'},
-        {points:0, label:'No GTM strategy presented'}
-      ]},
-      {key:'expansion_plan', label:'Planned expansion & home country linkage', maxPoints:10, anchors:[
-        {points:10, label:'Strong link between home market advantage and a well-defined, realistic international expansion plan'},
-        {points:8, label:'Clear expansion ambition with logical ties to the home market'},
-        {points:6, label:'Expansion mentioned but loosely connected to current operations'},
-        {points:4, label:'Expansion vision exists but lacks credibility or alignment with current stage'},
-        {points:2, label:'No expansion plan, purely local model'},
-        {points:0, label:'No information provided'}
-      ]}
-    ]
-  }
-];
+  };
+}
 
-// The one category that differs between Deeptech and Tech-enabled: Early Traction & Validation (15 pts)
-const TRACTION_CATEGORY_DEEPTECH = {
-  id:'traction', label:'2. Early Traction & Validation', maxPoints:15,
+const PRESEED_PROBLEM_IMPACT_CATEGORY = {
+  id:'problem_impact', label:'2. Problem Clarity & Impact', maxPoints:15,
   subcriteria:[
-    {key:'trl_validation', label:'Technology readiness (TRL) / technical validation', maxPoints:5, anchors:[
-      {points:5, label:'TRL 6-7: prototype demonstrated or tested in a relevant environment'},
-      {points:4, label:'TRL 5: components validated in relevant environment'},
-      {points:3, label:'TRL 4: lab validation of basic integrated system'},
-      {points:2, label:'TRL 2-3: proof-of-concept or experimental validation'},
-      {points:1, label:'Early conceptual testing'},
-      {points:0, label:'TRL 1: conceptual stage or basic principles observed'}
+    {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:11.25, rawScale:true, anchors:[
+      {raw:5, label:'Specific, urgent, grounded in direct experience or early research (founder-market fit evident); clear articulation of who feels this pain and why now'},
+      {raw:4, label:'Clear and relevant but lacks urgency/context or first-hand grounding'},
+      {raw:3, label:'Understood but generic, lacks grounding in lived experience or discovery work'},
+      {raw:2, label:'Vague or overly broad; sounds like a solution looking for a problem'},
+      {raw:1, label:'Unclear or not articulated'}
     ]},
-    {key:'revenue_pilots', label:'Revenue / pilots or grants', maxPoints:4, anchors:[
-      {points:4, label:'Paid pilot, grant funding secured, or early revenue'},
-      {points:3, label:'Grant applied/pending or LOI with a pilot partner'},
-      {points:2, label:'Pilot discussions underway'},
-      {points:1, label:'Informal interest only'},
-      {points:0, label:'No engagement'}
-    ]},
-    {key:'ip_protection', label:'IP protection & defensibility', maxPoints:3, anchors:[
-      {points:3, label:'Patent filed or strong trade secret/defensibility strategy'},
-      {points:2, label:'IP strategy defined, not yet filed'},
-      {points:1, label:'Aware of IP needs, no action taken'},
-      {points:0, label:'No IP consideration or no information provided'}
-    ]},
-    {key:'customer_segments', label:'Customer segments', maxPoints:3, anchors:[
-      {points:3, label:'Clearly defined segments with early evidence (interviews, signups, pilots)'},
-      {points:2, label:'Segments identified but untested'},
-      {points:1, label:'Poorly defined or generic customer segments'},
-      {points:0, label:'No information on target customers'}
-    ]}
-  ]
-};
-const TRACTION_CATEGORY_TECH_ENABLED = {
-  id:'traction', label:'2. Early Traction & Validation', maxPoints:15,
-  subcriteria:[
-    {key:'revenue_users', label:'Revenue / paying users or pilots', maxPoints:5, anchors:[
-      {points:5, label:'>$2,000/month revenue or a robust paid pilot program'},
-      {points:4, label:'$500-2,000/month or multiple paying pilots'},
-      {points:3, label:'<$500/month or first paying customer/pilot'},
-      {points:2, label:'Non-paying pilot/beta users engaged'},
-      {points:1, label:'Informal testing only (friends/family)'},
-      {points:0, label:'Pre-launch'}
-    ]},
-    {key:'mvp_validation', label:'Product / MVP validation', maxPoints:4, anchors:[
-      {points:4, label:'Functional MVP in active real-world use'},
-      {points:3, label:'MVP tested with real user feedback'},
-      {points:2, label:'Working prototype, limited testing'},
-      {points:1, label:'Early proof of concept'},
-      {points:0, label:'Concept stage only'}
-    ]},
-    {key:'legal_incorporation', label:'Legal & incorporation', maxPoints:3, anchors:[
-      {points:3, label:'Legally incorporated + basic IP awareness'},
-      {points:2, label:'Incorporated, no IP strategy in place'},
-      {points:1, label:'Incorporation in progress'},
-      {points:0, label:'Not incorporated or no information provided'}
-    ]},
-    {key:'customer_segments', label:'Customer segments', maxPoints:3, anchors:[
-      {points:3, label:'Clearly defined segments with early evidence (interviews, signups, pilots)'},
-      {points:2, label:'Segments identified but untested'},
-      {points:1, label:'Poorly defined or generic customer segments'},
-      {points:0, label:'No information on target customers'}
+    {key:'social_impact', label:'Social/environmental impact', maxPoints:3.75, rawScale:true, anchors:[
+      {raw:5, label:'Aligned with 3+ SDGs, with a plausible, well-reasoned path to measurable impact'},
+      {raw:4, label:'Aligned with 2 SDGs, plausible path to impact'},
+      {raw:3, label:'Aligned with 1 SDG or general mention, impact pathway not yet reasoned through'},
+      {raw:2, label:'Vague or indirect mention of impact'},
+      {raw:1, label:'No clear impact or not mentioned'}
     ]}
   ]
 };
 
-function insertTractionCategory(categories, tractionCat){
-  // Traction is category "2", inserted right after Team (category 1)
-  return [categories[0], tractionCat, ...categories.slice(1)];
+function preSeedSolutionTechCategory(type){
+  const isDeep = type === 'deeptech';
+  return {
+    id:'solution_tech', label:'3. Solution & Technology (Vision & Approach)', maxPoints:25,
+    subcriteria:[
+      {key:'tech_differentiation', label:'Technology differentiation', maxPoints:6.25, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'Differentiation grounded in proprietary science/engineering approach (novel method, unique dataset, protected process concept) with credible early rationale'},
+        {raw:4, label:'Real technical differentiation, defensibility not yet secured or explored'},
+        {raw:3, label:'Some technical distinction, but similar approaches exist elsewhere'},
+        {raw:2, label:'Minimal technical differentiation from known approaches'},
+        {raw:1, label:'No technical differentiation identified'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ] : [
+        {raw:5, label:'Clear, credible product/feature differentiation vs. alternatives, even if not yet fully built (proprietary insight, unique workflow, planned integration depth)'},
+        {raw:4, label:'Meaningful differentiation, some replicable elements'},
+        {raw:3, label:'Some differentiation, largely feature-based and copyable'},
+        {raw:2, label:'Minimal differentiation from existing tools'},
+        {raw:1, label:'No differentiation identified'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ]},
+      {key:'tech_readiness', label:'Technology readiness (TRL)', maxPoints:5, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'TRL 3-4: proof-of-concept demonstrated, or early lab validation of key components'},
+        {raw:4, label:'TRL 2: technology concept and/or application formulated'},
+        {raw:3, label:'TRL 1: basic scientific principles observed and reported'},
+        {raw:2, label:'Scientific hypothesis articulated, no formal validation yet'},
+        {raw:1, label:'Concept stage only, no research activity started'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ] : [
+        {raw:5, label:'Live MVP or working prototype with early user feedback'},
+        {raw:4, label:'Functional prototype built, not yet public/tested with users'},
+        {raw:3, label:'Clickable mockup/wireframe with technical feasibility outlined'},
+        {raw:2, label:'Concept/approach described, no build started'},
+        {raw:1, label:'Idea stage only, no technical work started'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ]},
+      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6.25, rawScale:true, anchors:[
+        {raw:5, label:'Clear, compelling, specific; strong reason to choose'},
+        {raw:4, label:'Clear and relevant, less differentiated'},
+        {raw:3, label:'Present but somewhat generic or unclear'},
+        {raw:2, label:'Weak, doesn\u2019t address pain points'},
+        {raw:1, label:'Vague, absent, or non-differentiated'}
+      ]},
+      {key:'legal_ip', label:'Legal & IP', maxPoints:2.5, rawScale:true, anchors:[
+        {raw:5, label:'Incorporated, with IP ownership clarified or protections filed/in progress'},
+        {raw:4, label:'Incorporation in progress; founders aware of and planning an IP strategy'},
+        {raw:3, label:'Not yet incorporated but has a clear plan/timeline to do so; IP not yet addressed'},
+        {raw:2, label:'No incorporation plan yet; no IP consideration'},
+        {raw:1, label:'No information provided'}
+      ]},
+      {key:'scalability', label:'Solution scalability (via NLP)', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'High scalability, credible reasoning and early signs of adaptability/replication'},
+        {raw:4, label:'High scalability, clear logic though untested'},
+        {raw:3, label:'Scalable, logical path to broader markets'},
+        {raw:2, label:'Limited; heavily localized/customized by design'},
+        {raw:1, label:'No scalable path identified'}
+      ]}
+    ]
+  };
+}
+
+function preSeedTractionCategory(type){
+  const isDeep = type === 'deeptech';
+  return {
+    id:'traction_maturity', label:'4. Traction & Early Validation', maxPoints:15,
+    subcriteria:[
+      {key:'competitive_positioning', label:'Competitive positioning (via NLP)', maxPoints:4.5, rawScale:true, anchors:[
+        {raw:5, label:'Clear competitor understanding, compelling differentiation'},
+        {raw:4, label:'Competitors identified, some differentiation'},
+        {raw:3, label:'General awareness, vague/weak differentiation'},
+        {raw:2, label:'Competitors mentioned, no clear differentiation'},
+        {raw:1, label:'No competitors identified'}
+      ]},
+      {key:'customer_segments', label:'Customer segments', maxPoints:3.75, rawScale:true, anchors:[
+        {raw:5, label:'Clearly defined segment(s), supported by early customer conversations/research'},
+        {raw:4, label:'Defined segment(s), some supporting evidence'},
+        {raw:3, label:'Segment(s) outlined but vague or untested'},
+        {raw:2, label:'Poorly defined or generic segment(s)'},
+        {raw:1, label:'No information on target customers'}
+      ]},
+      {key:'early_validation', label:'Early validation signals (revenue/pilots/LOIs)', maxPoints:3.75, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'Paying customers/pilot revenue, or strong signed LOIs from multiple prospective customers'},
+        {raw:4, label:'Signed LOI(s) or committed pilot(s), no revenue yet'},
+        {raw:3, label:'Active customer/partner discovery underway (interviews, expressions of interest, pilot conversations)'},
+        {raw:2, label:'Some informal interest or feedback gathered, nothing structured'},
+        {raw:1, label:'No customer/partner engagement yet'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ] : [
+        {raw:5, label:'Paying customers/pilot revenue, or strong signed LOIs from multiple prospective customers'},
+        {raw:4, label:'Signed LOI(s) or committed pilot(s), no revenue yet'},
+        {raw:3, label:'Active customer discovery underway (interviews, waitlist, pilot conversations)'},
+        {raw:2, label:'Some informal interest or feedback gathered, nothing structured'},
+        {raw:1, label:'No customer engagement yet'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ]},
+      {key:'momentum', label:'Momentum & progress', maxPoints:3, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'Consistent progress against technical/research milestones (experiments run, prototype iterations) over 2+ months'},
+        {raw:4, label:'Regular milestone progress, some delays'},
+        {raw:3, label:'Some milestone progress, inconsistent pace'},
+        {raw:2, label:'Stalled or unclear progress against plan'},
+        {raw:1, label:'No measurable progress, or too early to assess'},
+        {raw:0, label:'Not answered / insufficient information to assess'}
+      ] : [
+        {raw:5, label:'Consistent, visible progress against milestones (user growth, product iterations, signups) over 2+ months'},
+        {raw:4, label:'Regular progress, some delays'},
+        {raw:3, label:'Some progress, inconsistent pace'},
+        {raw:2, label:'Stalled or unclear progress'},
+        {raw:1, label:'No measurable progress, or too early to assess'}
+      ]}
+    ]
+  };
+}
+
+const PRESEED_FUNDRAISING_CATEGORY = {
+  id:'fundraising', label:'5. Fundraising & Financial Readiness', maxPoints:10,
+  subcriteria:[
+    {key:'amount_raised', label:'Amount raised to date', maxPoints:2, rawScale:true, anchors:[
+      {raw:5, label:'>$25,000 from credible external sources (angels, grants, accelerators)'},
+      {raw:4, label:'$10,000-25,000 from external sources'},
+      {raw:3, label:'$2,000-10,000 from external sources'},
+      {raw:2, label:'<$2,000 externally, or mostly informal/friends & family'},
+      {raw:1, label:'No funding raised'}
+    ]},
+    {key:'funding_diversity', label:'Funding source diversity', maxPoints:2, rawScale:true, anchors:[
+      {raw:5, label:'3+ distinct types of capital explored or secured (e.g., grants, F&F, angel, accelerator/incubator)'},
+      {raw:4, label:'Two distinct sources'},
+      {raw:3, label:'One main source'},
+      {raw:2, label:'Mostly informal (family/friends) or founder-funded'},
+      {raw:1, label:'No capital raised or sought'}
+    ]},
+    {key:'fundraising_ask', label:'Clarity on fundraising ask', maxPoints:2, rawScale:true, anchors:[
+      {raw:5, label:'Clear amount, funding type, use of funds, stage'},
+      {raw:4, label:'Clear amount and stage, partial use of funds'},
+      {raw:3, label:'Amount stated, unclear stage or use'},
+      {raw:2, label:'Vague/inconsistent, or only "raising" mentioned'},
+      {raw:1, label:'No fundraising information provided'}
+    ]},
+    {key:'valuation_awareness', label:'Valuation & awareness', maxPoints:1.2, rawScale:true, anchors:[
+      {raw:5, label:'Clearly stated, appropriate for stage, well-supported'},
+      {raw:4, label:'Stated, reasonable but justification unclear'},
+      {raw:3, label:'Stated, but possibly unrealistic/poorly justified'},
+      {raw:2, label:'Not stated or inconsistent with stage'},
+      {raw:1, label:'No awareness of valuation / blank'}
+    ]},
+    {key:'cap_table_health', label:'Cap Table Health', maxPoints:1.2, rawScale:true, anchors:[
+      {raw:5, label:'Clean structure (founders +/- small F&F allocation), no red flags'},
+      {raw:4, label:'Generally healthy, minor concerns (e.g. informal agreements not yet documented)'},
+      {raw:3, label:'Some concerns (undocumented equity promises, unclear splits)'},
+      {raw:2, label:'Major risks (too many informal stakeholders, unclear ownership)'},
+      {raw:1, label:'No cap table exists / founders haven\u2019t discussed equity split'}
+    ]},
+    {key:'negotiation_activity', label:'Negotiation activity', maxPoints:1.6, rawScale:true, anchors:[
+      {raw:5, label:'Active discussions with angel investors or pre-seed funds'},
+      {raw:4, label:'Multiple informal investor conversations underway'},
+      {raw:3, label:'Some early outreach to investors, still exploratory'},
+      {raw:2, label:'No current investor engagement, but fundraising intent stated'},
+      {raw:1, label:'Not currently fundraising / no activity mentioned'}
+    ]}
+  ]
+};
+
+const PRESEED_MARKET_FIT_CATEGORY = {
+  id:'market_fit', label:'6. Market Fit & Expansion Strategy', maxPoints:10,
+  subcriteria:[
+    {key:'gtm_strategy', label:'Go-to-market strategy', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Clear, phased GTM plan tailored to target segment(s); includes specific first channels and milestones'},
+      {raw:4, label:'GTM plan exists and makes sense, but lacks some structure or detail'},
+      {raw:3, label:'General direction identified, but plan is vague or untested'},
+      {raw:2, label:'Basic or generic GTM strategy; lacks market understanding'},
+      {raw:1, label:'Minimal to no mention of GTM'}
+    ]},
+    {key:'expansion_plan', label:'Planned expansion & home country linkage', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Strong link between home market advantage and a well-defined, realistic international expansion vision'},
+      {raw:4, label:'Clear expansion ambition with logical ties to the home market'},
+      {raw:3, label:'Expansion mentioned but loosely connected to current plans'},
+      {raw:2, label:'Expansion vision exists but lacks credibility or alignment with current stage'},
+      {raw:1, label:'No expansion plan, purely local model'}
+    ]}
+  ]
+};
+
+function preSeedRubric(type){
+  return [
+    preSeedTeamCategory(type),
+    PRESEED_PROBLEM_IMPACT_CATEGORY,
+    preSeedSolutionTechCategory(type),
+    preSeedTractionCategory(type),
+    PRESEED_FUNDRAISING_CATEGORY,
+    PRESEED_MARKET_FIT_CATEGORY
+  ];
 }
 
 /* ============ SEED-STAGE RUBRIC ============ */
@@ -984,8 +1055,8 @@ function seedRubric(type){
 }
 
 const RUBRICS = {
-  'pre-seed:deeptech': insertTractionCategory(SHARED_CATEGORIES_PRESEED, TRACTION_CATEGORY_DEEPTECH),
-  'pre-seed:tech-enabled': insertTractionCategory(SHARED_CATEGORIES_PRESEED, TRACTION_CATEGORY_TECH_ENABLED),
+  'pre-seed:deeptech': preSeedRubric('deeptech'),
+  'pre-seed:tech-enabled': preSeedRubric('tech-enabled'),
   'seed:deeptech': seedRubric('deeptech'),
   'seed:tech-enabled': seedRubric('tech-enabled')
 };
