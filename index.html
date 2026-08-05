@@ -67,6 +67,9 @@
   .brand-mark{width:28px;height:28px;color:var(--ost-white);flex-shrink:0;}
   .brand-name{font-weight:900;font-size:15px;letter-spacing:0.2px;color:var(--ost-white);}
   .brand-tag{font-size:11px;color:rgba(255,255,255,0.6);margin-top:-2px;}
+  .topbar-left{display:flex;align-items:center;gap:16px;}
+  .topbar-home-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.22);color:#fff;padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;transition:background var(--t-fast) var(--ease);}
+  .topbar-home-btn:hover{background:rgba(255,255,255,0.18);}
   .who{display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(255,255,255,0.7);}
   .who b{color:var(--ost-white);}
   .logout{border:1px solid rgba(255,255,255,0.3);background:transparent;padding:6px 12px;border-radius:8px;font-size:12.5px;color:rgba(255,255,255,0.8);}
@@ -151,6 +154,7 @@
   .section-sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
   .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:600;}
   .pill-pending{background:var(--gold-soft);color:var(--gold);}
+  .pill-partial{background:#FDE9D0;color:#B0630A;}
   .pill-done{background:var(--accent-soft);color:var(--accent);}
   .tab-pill{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:100px;font-size:12.5px;font-weight:600;color:var(--muted);transition:background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);}
   .tab-pill:hover{border-color:var(--accent);}
@@ -177,6 +181,7 @@
   .startup-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px;}
   .startup-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);animation:fadeSlideIn var(--t-base) var(--ease) backwards;}
   .startup-tile.is-scored{border-left-color:var(--accent);}
+  .startup-tile.is-partial{border-left-color:#B0630A;}
   .startup-tile.is-pending{border-left-color:var(--gold);}
   .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
@@ -237,6 +242,10 @@
   .startup-header-tags{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .startup-header-tags .su-meta{margin:0;}
   .startup-header-actions{display:flex;gap:10px;flex-shrink:0;}
+  .startup-header-overall{text-align:right;flex-shrink:0;padding-left:18px;margin-left:4px;border-left:1px solid var(--line);}
+  .startup-header-overall-label{font-size:10.5px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);font-weight:700;}
+  .startup-header-overall-value{font-size:21px;font-weight:900;color:var(--ost-navy);font-variant-numeric:tabular-nums;line-height:1.3;}
+  .startup-header-overall-value span{font-size:13px;font-weight:600;color:var(--muted);}
   .header-action-btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:13.5px;font-weight:600;white-space:nowrap;transition:border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
   .header-action-btn i{font-size:16px;}
   .header-action-btn:hover{border-color:var(--accent);background:var(--accent-soft);transform:translateY(-1px);box-shadow:var(--shadow-xs);}
@@ -309,6 +318,7 @@
     .startup-header-info h2{font-size:16px;white-space:normal;}
     .startup-header-actions{width:100%;order:3;}
     .header-action-btn{flex:1;justify-content:center;}
+    .startup-header-overall{border-left:none;padding-left:0;margin-left:0;text-align:left;order:2;}
     .eval-hero-inner{flex-direction:column;align-items:flex-start;padding:24px 16px;}
     .eval-hero-inner h1{font-size:21px;}
     .scoring-overview-grid{grid-template-columns:1fr 1fr;}
@@ -1370,12 +1380,15 @@ const OST_LOGO_MARK = `<svg class="brand-mark" viewBox="0 0 512 487" xmlns="http
 function topbar(rightHtml){
   return `
   <div class="topbar">
-    <div class="brand" id="brandHome" style="cursor:pointer;">
-      ${OST_LOGO_MARK}
-      <div>
-        <div class="brand-name">Open Startup</div>
-        <div class="brand-tag">Evaluation Platform</div>
+    <div class="topbar-left">
+      <div class="brand" id="brandHome" style="cursor:pointer;">
+        ${OST_LOGO_MARK}
+        <div>
+          <div class="brand-name">Open Startup</div>
+          <div class="brand-tag">Evaluation Platform</div>
+        </div>
       </div>
+      <button class="topbar-home-btn" id="brandHomeBtn"><i class="ph-fill ph-house"></i> Home</button>
     </div>
     <div class="who">${rightHtml}</div>
   </div>`;
@@ -2229,28 +2242,30 @@ function renderAdminResults(){
         ${visibleStartups.map(s=>{
           const rubric = getRubric(s);
           const rows = scoresForStartup(s.id);
+          const submittedRows = rows.filter(r=>r.submitted);
+          const partialCount = rows.length - submittedRows.length;
           const maxTotal = rubric ? rubricMaxTotal(rubric) : null;
-          const totals = rubric ? rows.map(r=>scoreRowTotal(r,rubric)).filter(v=>v!==null) : [];
+          const totals = rubric ? submittedRows.map(r=>scoreRowTotal(r,rubric)).filter(v=>v!==null) : [];
           const avgTotal = avgOf(totals);
-          const goCount = rows.filter(r=>r.goNoGo==='go').length;
-          const noGoCount = rows.filter(r=>r.goNoGo==='no-go').length;
+          const goCount = submittedRows.filter(r=>r.goNoGo==='go').length;
+          const noGoCount = submittedRows.filter(r=>r.goNoGo==='no-go').length;
           return `
           <tr class="agg-row" data-expand="${s.id}">
             <td><i class="ph ph-caret-right expand-chevron" id="chevron-${s.id}"></i></td>
             <td><b>${esc(s.name)}</b></td>
             <td>${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}</td>
             <td>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '<span style="color:var(--danger);">Not set</span>'}</td>
-            <td>${rows.length} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
+            <td>${submittedRows.length}${partialCount?` <span style="color:#B0630A;">(+${partialCount} in progress)</span>`:''} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
             <td>${goCount||noGoCount ? `<span class="chip" style="background:var(--accent-soft);color:var(--accent);">Go: ${goCount}</span> <span class="chip" style="background:var(--danger-soft);color:var(--danger);">No-Go: ${noGoCount}</span>` : '—'}</td>
             <td class="mono" style="font-weight:700;">${avgTotal===null?'—':avgTotal.toFixed(1)+' / '+maxTotal}</td>
           </tr>
           <tr id="expand-${s.id}" style="display:none;"><td colspan="7" style="padding:0;">
             <div class="expand-panel">
-              ${!rubric ? '<div class="su-meta">Set this startup\'s Type in the Startups tab to enable scoring.</div>' : rows.length===0 ? '<div class="su-meta">No scores submitted yet.</div>' : `
+              ${!rubric ? '<div class="su-meta">Set this startup\'s Type in the Startups tab to enable scoring.</div>' : rows.length===0 ? '<div class="su-meta">No scores yet.</div>' : `
               ${rubric.map(cat=>{
-                const catVals = rows.map(r=>categoryTotal(r,cat)).filter(v=>v!==null);
+                const catVals = submittedRows.map(r=>categoryTotal(r,cat)).filter(v=>v!==null);
                 const catAvg = avgOf(catVals);
-                return `<div class="su-meta" style="margin-bottom:6px;"><b>${esc(cat.label)}:</b> ${catAvg===null?'—':catAvg.toFixed(1)} / ${cat.maxPoints} avg</div>`;
+                return `<div class="su-meta" style="margin-bottom:6px;"><b>${esc(cat.label)}:</b> ${catAvg===null?'— (no submitted scores yet)':catAvg.toFixed(1)+' / '+cat.maxPoints+' avg'}</div>`;
               }).join('')}
               <div style="height:10px;"></div>
               ${rows.map(r=>{
@@ -2258,7 +2273,11 @@ function renderAdminResults(){
                 const rowTotal = scoreRowTotal(r,rubric);
                 return `
                 <div class="eval-score-card">
-                  <div style="min-width:120px;"><b>${esc(evaluator?evaluator.name:'Unknown')}</b><div class="su-meta">${rowTotal===null?'—':rowTotal+' / '+rubricMaxTotal(rubric)} &middot; ${r.goNoGo ? (r.goNoGo==='go'?'Go':'No-Go') : 'No call'}</div></div>
+                  <div style="min-width:120px;">
+                    <b>${esc(evaluator?evaluator.name:'Unknown')}</b>
+                    <div class="su-meta">${rowTotal===null?'—':rowTotal.toFixed(1)+' / '+rubricMaxTotal(rubric)} &middot; ${r.goNoGo ? (r.goNoGo==='go'?'Go':'No-Go') : 'No call'}</div>
+                    <span class="pill ${r.submitted?'pill-done':'pill-partial'}" style="margin-top:4px;">${r.submitted?'Submitted':'In progress'}</span>
+                  </div>
                   <div class="chip-row" style="flex:1;">
                     ${rubric.flatMap(cat=>cat.subcriteria).map(sub=>`<span class="chip">${esc(sub.label)}: ${r.subScores && r.subScores[sub.key]!==undefined ? r.subScores[sub.key] : '—'}</span>`).join('')}
                   </div>
@@ -2421,13 +2440,15 @@ function rubricOverviewHtml(track, type){
 }
 
 function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
-  const pendingCount = assigned.length - scoredCount;
+  const scoresByStartup = assigned.map(s=>S.scores[ev.id+'::'+s.id]);
+  const partialCount = scoresByStartup.filter(sc=>sc && !sc.submitted).length;
+  const pendingCount = assigned.length - scoredCount - partialCount;
   const preSeedCount = assigned.filter(s=>(s.track||'pre-seed')==='pre-seed').length;
   const seedCount = assigned.filter(s=>s.track==='seed').length;
   const techCount = assigned.filter(s=>s.type==='tech-enabled').length;
   const deepCount = assigned.filter(s=>s.type==='deeptech').length;
 
-  const myScores = assigned.map(s=>S.scores[ev.id+'::'+s.id]).filter(Boolean);
+  const myScores = scoresByStartup.filter(sc=>sc && sc.submitted);
   const goCount = myScores.filter(sc=>sc.goNoGo==='go').length;
   const noGoCount = myScores.filter(sc=>sc.goNoGo==='no-go').length;
   const noCallCount = myScores.length - goCount - noGoCount;
@@ -2441,8 +2462,9 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
     <h3 style="margin-top:0;font-size:15px;">Your progress</h3>
     <div class="stat-grid" style="margin-bottom:20px;">
       ${statCard('ph-buildings', assigned.length, 'Assigned to you')}
-      ${statCard('ph-check-circle', scoredCount, 'Scored', scoredCount>0 ? {bg:'var(--accent-soft)',fg:'var(--accent-dark)'} : null)}
-      ${statCard('ph-hourglass', pendingCount, 'Still pending', pendingCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : {bg:'var(--accent-soft)',fg:'var(--accent-dark)'})}
+      ${statCard('ph-check-circle', scoredCount, 'Submitted', scoredCount>0 ? {bg:'var(--accent-soft)',fg:'var(--accent-dark)'} : null)}
+      ${statCard('ph-pencil-simple-line', partialCount, 'In progress, not submitted', partialCount>0 ? {bg:'#FDE9D0',fg:'#B0630A'} : null)}
+      ${statCard('ph-hourglass', pendingCount, 'Not started', pendingCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : {bg:'var(--accent-soft)',fg:'var(--accent-dark)'})}
       ${statCard('ph-globe-hemisphere-west', countriesSorted.length, 'Countries in your list')}
     </div>
 
@@ -2474,7 +2496,8 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
 function renderEvaluatorHome(){
   const ev = S.evaluator;
   const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
-  const scoredCount = assigned.filter(s=>S.scores[ev.id+'::'+s.id]).length;
+  const scoredCount = assigned.filter(s=>{ const sc = S.scores[ev.id+'::'+s.id]; return sc && sc.submitted; }).length;
+  const partialCount = assigned.filter(s=>{ const sc = S.scores[ev.id+'::'+s.id]; return sc && !sc.submitted; }).length;
   const pct = assigned.length ? (scoredCount/assigned.length*100) : null;
   const ringColor = pct===null ? {border:'var(--line)',text:'var(--muted)'} : gaugeColor(pct);
   return `
@@ -2487,7 +2510,7 @@ function renderEvaluatorHome(){
       <div>
         <div class="eval-hero-eyebrow">Welcome back</div>
         <h1>${esc(ev.name)}</h1>
-        <p>${assigned.length===0 ? "You don't have any startups assigned yet." : scoredCount===assigned.length ? "You're all caught up, every assigned startup is scored." : `${assigned.length - scoredCount} of ${assigned.length} still need your score.`}</p>
+        <p>${assigned.length===0 ? "You don't have any startups assigned yet." : scoredCount===assigned.length ? "You're all caught up, every assigned startup is submitted." : `${assigned.length - scoredCount} of ${assigned.length} still need a submitted score${partialCount?` (${partialCount} in progress, don't forget to finish and submit)`:''}.`}</p>
         <button class="btn btn-primary" id="goToList" style="height:44px;padding:0 22px;margin-top:14px;"><i class="ph-fill ph-squares-four"></i> View my assigned startups${assigned.length?` (${assigned.length})`:''}</button>
       </div>
       ${assigned.length ? `
@@ -2560,17 +2583,22 @@ function renderEvaluatorList(){
         const rubric = getRubric(s);
         const maxTotal = rubric ? rubricMaxTotal(rubric) : 100;
         let ownTotal = null;
-        if(own && own.subScores){
-          const vals = Object.values(own.subScores).filter(v=>typeof v === 'number');
+        if(own && own.subScores && rubric){
+          const vals = rubric.flatMap(cat=>cat.subcriteria)
+            .map(sub => subPointsFor(sub, own.subScores[sub.key]))
+            .filter(v=>typeof v === 'number');
           if(vals.length) ownTotal = vals.reduce((a,b)=>a+b,0);
         }
         const pct = ownTotal===null ? null : (ownTotal/maxTotal*100);
         const g = gaugeColor(pct);
+        const statusClass = own && own.submitted ? 'is-scored' : (own ? 'is-partial' : 'is-pending');
+        const statusPillClass = own && own.submitted ? 'pill-done' : (own ? 'pill-partial' : 'pill-pending');
+        const statusLabel = own && own.submitted ? 'Scored' : (own ? 'In progress' : 'Pending');
         return `
-        <div class="startup-tile ${own?'is-scored':'is-pending'}" data-open="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms;">
+        <div class="startup-tile ${statusClass}" data-open="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms;">
           <div class="row-between" style="align-items:flex-start;">
-            ${progressRing(pct, g, ownTotal===null?'—':ownTotal, 40)}
-            <span class="pill ${own?'pill-done':'pill-pending'}">${own?'Scored':'Pending'}</span>
+            ${progressRing(pct, g, ownTotal===null?'—':Math.round(ownTotal), 40)}
+            <span class="pill ${statusPillClass}">${statusLabel}</span>
           </div>
           <div class="su-name" style="margin-top:10px;">${esc(s.name)}</div>
           <div class="su-meta">${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}</div>
@@ -2621,11 +2649,13 @@ function categorySubtotal(cat, draft){
   return cat.subcriteria.reduce((sum, sub) => sum + (subPointsFor(sub, draft.subScores[sub.key]) ?? 0), 0);
 }
 
-async function persistDraft(ev, s, draft){
+async function persistDraft(ev, s, draft, submitted){
+  const existing = S.scores[draft._key];
   const record = {
     subScores: { ...draft.subScores },
     goNoGo: draft.goNoGo,
     comments: draft.comments,
+    submitted: submitted !== undefined ? submitted : !!(existing && existing.submitted),
     updatedAt: Date.now()
   };
   S.scores[draft._key] = record;
@@ -2678,6 +2708,7 @@ function renderEvaluatorDetail(){
   // Persistent identity header — same on every category and the final step, so the
   // startup you're looking at is never ambiguous while stepping through the rubric.
   const deckUrl = s.deckOverride || null;
+  const overallSoFar = rubric.reduce((sum,cat)=>sum+categorySubtotal(cat,draft),0);
   const startupHeaderHtml = `
     <div class="startup-header">
       <div class="startup-header-logo">${esc((s.name||'?').trim().charAt(0).toUpperCase())}</div>
@@ -2694,6 +2725,10 @@ function renderEvaluatorDetail(){
         ${s.website ? `<a class="header-action-btn" href="${escAttr(s.website)}" target="_blank" rel="noopener"><i class="ph ph-globe"></i> Website</a>` : ''}
         ${deckUrl ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(driveEmbedUrl(deckUrl))}"><i class="ph ph-file-text"></i> Preview deck</button>`
                    : (s.decks ? `<a class="header-action-btn primary" href="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'')}" target="_blank" rel="noopener"><i class="ph ph-download-simple"></i> Download deck</a>` : '')}
+      </div>
+      <div class="startup-header-overall">
+        <div class="startup-header-overall-label">Overall</div>
+        <div class="startup-header-overall-value">${overallSoFar} <span>/ ${rubricMaxTotal(rubric)}</span></div>
       </div>
     </div>`;
 
@@ -2738,7 +2773,8 @@ function renderEvaluatorDetail(){
           </div>
           <div class="step-nav">
             <button type="button" class="btn btn-ghost" id="stepPrev">&larr; Back</button>
-            <button type="button" class="btn btn-primary" id="saveScoreBtn">Save &amp; finish</button>
+            <button type="button" class="btn btn-ghost" id="saveDraftBtn"><i class="ph ph-floppy-disk"></i> Save</button>
+            <button type="button" class="btn btn-primary" id="saveScoreBtn"><i class="ph ph-paper-plane-tilt"></i> Submit</button>
           </div>
         </div>
         <div class="panel-right">
@@ -2910,11 +2946,22 @@ function attachEvaluatorDetailListeners(){
     };
   }
 
+  const saveDraftBtn = document.getElementById('saveDraftBtn');
+  if(saveDraftBtn){
+    saveDraftBtn.onclick = async ()=>{
+      await persistDraft(ev, s, draft); // preserves current submitted status, just saves progress
+      toast('Progress saved');
+      S.currentStartupId = null;
+      draftScore = null;
+      render();
+    };
+  }
+
   const saveBtn = document.getElementById('saveScoreBtn');
   if(saveBtn){
     saveBtn.onclick = async ()=>{
-      await persistDraft(ev, s, draft);
-      toast('Score saved');
+      await persistDraft(ev, s, draft, true); // explicitly mark as submitted/finished
+      toast('Score submitted');
       S.currentStartupId = null;
       draftScore = null;
       render();
@@ -3121,7 +3168,7 @@ document.addEventListener('click', (e)=>{
 
 /* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
 document.addEventListener('click', (e)=>{
-  const brandEl = e.target.closest('#brandHome');
+  const brandEl = e.target.closest('#brandHome, #brandHomeBtn');
   if(!brandEl) return;
   if(S.evaluator){
     S.view = 'evaluator';
