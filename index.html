@@ -1736,7 +1736,32 @@ function renderAdminStartups(){
   const visibleSelectedCount = visibleStartups.filter(s=>selected.includes(s.id)).length;
   const allVisibleSelected = visibleStartups.length>0 && visibleSelectedCount===visibleStartups.length;
 
+  // Detect duplicate documents (same name under different Firestore IDs) — if two copies of
+  // "the same" startup exist, deleting one still leaves the other showing up in the list.
+  const nameGroups = {};
+  S.startups.forEach(s=>{
+    const key = (s.name||'').trim().toLowerCase();
+    if(!key) return;
+    (nameGroups[key] = nameGroups[key] || []).push(s);
+  });
+  const duplicateGroups = Object.values(nameGroups).filter(g=>g.length>1);
+
   return `
+  ${duplicateGroups.length ? `
+  <div class="dash-alert" style="margin-bottom:16px;">
+    <i class="ph-fill ph-warning-circle"></i>
+    <div>
+      <b>${duplicateGroups.length} startup name${duplicateGroups.length===1?'':'s'} appear more than once as separate documents:</b>
+      ${duplicateGroups.map(g=>`
+        <div style="margin-top:8px;">
+          <b>${esc(g[0].name)}</b> &middot; ${g.length} copies —
+          ${g.map(s=>`<span class="chip" style="background:#fff;border:1px solid var(--danger);color:var(--danger);margin-left:4px;" title="Document ID: ${escAttr(s.id)}">${esc(s.id)}</span>`).join('')}
+        </div>
+      `).join('')}
+      <div style="margin-top:8px;font-style:italic;">Deleting one copy will still leave the other(s) visible, this is likely why those specific startups won't fully delete.</div>
+    </div>
+  </div>` : ''}
+
   <div class="row-between" style="margin-bottom:14px;">
     <div>
       <div class="section-title">Startups</div>
