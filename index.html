@@ -2692,8 +2692,7 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
     .sort((a,b)=>{
       const rank = (o)=> o ? 0 : 1; // in-progress (has a draft) ranks before not-started
       return rank(a.own) - rank(b.own);
-    })
-    .slice(0, 5);
+    });
 
   return `
   <div class="card" style="max-width:none;padding:24px;margin-bottom:20px;">
@@ -2707,9 +2706,9 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
 
     <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap;">
       <div style="flex:1;min-width:260px;">
-        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">Needs your attention</h4>
+        <h4 style="font-size:12.5px;text-transform:uppercase;letter-spacing:0.4px;color:var(--muted);margin:0 0 10px;">Needs your attention (${needsAttention.length})</h4>
         ${needsAttention.length===0 ? `<p class="su-meta">Nothing left, everything's submitted.</p>` : `
-        <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;padding-right:4px;">
           ${needsAttention.map(({s,own})=>`
             <div class="needs-attention-row" data-open-startup="${s.id}">
               <span class="pill ${own?'pill-partial':'pill-notstarted'}" style="flex-shrink:0;">${own?'In progress':'Not started'}</span>
@@ -2718,7 +2717,6 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
             </div>
           `).join('')}
         </div>
-        ${assigned.length - scoredCount > needsAttention.length ? `<p class="su-meta" style="margin-top:8px;">+ ${assigned.length - scoredCount - needsAttention.length} more still to go</p>` : ''}
         `}
       </div>
       <div style="flex:1;min-width:240px;">
@@ -2778,7 +2776,7 @@ function renderEvaluatorHome(){
       <p class="su-meta" style="margin:14px 0 12px;">Seed-stage startups add a dedicated Problem & Impact category. Exact point values always show live while you're scoring. Want the full breakdown upfront? Pick a track:</p>
       <div class="row" style="gap:14px;flex-wrap:wrap;">
         <button class="rubric-track-card" data-rubric-track="pre-seed">
-          <div class="rubric-track-icon"><i class="ph-fill ph-seedling"></i></div>
+          <div class="rubric-track-icon"><i class="ph-fill ph-flag"></i></div>
           <div>
             <div class="rubric-track-name">Pre-Seed rubric</div>
             <div class="su-meta">${rubricMaxTotal(RUBRICS['pre-seed:tech-enabled'])} points &middot; ${RUBRICS['pre-seed:tech-enabled'].length} categories</div>
