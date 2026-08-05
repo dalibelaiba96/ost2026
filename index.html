@@ -142,7 +142,14 @@
   .rubric-track-name{font-weight:700;font-size:15px;}
   .rubric-track-arrow{margin-left:auto;color:var(--muted);flex-shrink:0;}
   .rubric-modal-table td{vertical-align:top;}
-  .rubric-modal-cat-cell{background:var(--ost-off-white);}
+  .rubric-modal-cat-cell{background:var(--ost-off-white);min-width:150px;}
+  .rubric-modal-cat-head{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);}
+  .rubric-modal-cat-head i{color:var(--accent-dark);font-size:16px;}
+  .rubric-range-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;}
+  .rubric-range-row:last-child{margin-bottom:0;}
+  .rubric-range-tag{flex-shrink:0;width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;}
+  .rubric-range-top{background:var(--accent);}
+  .rubric-range-bottom{background:var(--muted);}
   .role-title{font-weight:600;font-size:14.5px;}
   .role-desc{font-size:12.5px;color:var(--muted);}
   .error-msg{color:var(--danger);font-size:12.5px;margin-top:8px;}
@@ -2429,6 +2436,16 @@ const SCORING_OVERVIEW = [
   {icon:'ph-currency-circle-dollar', label:'Fundraising', desc:'Capital raised, ask clarity'},
   {icon:'ph-globe-hemisphere-west', label:'Market Fit', desc:'Go-to-market, expansion plans'}
 ];
+const CATEGORY_ICONS = {
+  team: 'ph-users-three',
+  traction: 'ph-rocket-launch',
+  traction_maturity: 'ph-rocket-launch',
+  solution: 'ph-lightbulb',
+  solution_tech: 'ph-lightbulb',
+  problem_impact: 'ph-target',
+  fundraising: 'ph-currency-circle-dollar',
+  market_fit: 'ph-globe-hemisphere-west'
+};
 
 // Builds the rubric table shown inside the modal for a given track+type
 function rubricModalTableHtml(track, type){
@@ -2437,16 +2454,28 @@ function rubricModalTableHtml(track, type){
   return `
   <div class="table-wrap">
     <table class="rubric-modal-table">
-      <thead><tr><th>Category</th><th>Sub-criterion</th><th>Max</th><th>What a top score (5) looks like</th></tr></thead>
+      <thead><tr><th>Category</th><th>Sub-criterion</th><th>Weight</th><th>Scoring range (1-5)</th></tr></thead>
       <tbody>
         ${rubric.map(cat=>cat.subcriteria.map((sub,i)=>{
           const scaleVals = sub.anchors.map(a=> sub.rawScale ? a.raw : a.points);
-          const topAnchor = sub.anchors.find((a,idx)=> scaleVals[idx] === Math.max(...scaleVals));
+          const maxVal = Math.max(...scaleVals), minVal = Math.min(...scaleVals.filter(v=>v>0)) || Math.min(...scaleVals);
+          const topAnchor = sub.anchors.find((a,idx)=> scaleVals[idx] === maxVal);
+          const bottomAnchor = sub.anchors.find((a,idx)=> scaleVals[idx] === minVal);
+          const weightPct = (sub.maxPoints / cat.maxPoints * 100);
           return `<tr>
-            ${i===0 ? `<td rowspan="${cat.subcriteria.length}" class="rubric-modal-cat-cell"><b>${esc(cat.label)}</b><div class="su-meta">${cat.maxPoints} pts total</div></td>` : ''}
-            <td>${esc(sub.label)}</td>
-            <td class="mono" style="font-weight:700;">${sub.maxPoints}</td>
-            <td class="su-meta">${esc(topAnchor.label)}</td>
+            ${i===0 ? `<td rowspan="${cat.subcriteria.length}" class="rubric-modal-cat-cell">
+              <div class="rubric-modal-cat-head"><i class="ph-fill ${CATEGORY_ICONS[cat.id]||'ph-list-checks'}"></i> <b>${esc(cat.label.replace(/^\d+\.\s*/,''))}</b></div>
+              <div class="su-meta">${cat.maxPoints} pts total</div>
+            </td>` : ''}
+            <td>
+              <div style="font-weight:600;font-size:13px;">${esc(sub.label)}</div>
+              <div class="bar-track" style="margin-top:6px;width:90px;"><div class="bar-fill" style="width:${weightPct}%;background:var(--ost-navy);"></div></div>
+            </td>
+            <td class="mono" style="font-weight:700;">${sub.maxPoints}<span class="su-meta" style="font-weight:400;"> pts</span></td>
+            <td>
+              <div class="rubric-range-row"><span class="rubric-range-tag rubric-range-top">5</span><span class="su-meta">${esc(topAnchor.label)}</span></div>
+              <div class="rubric-range-row"><span class="rubric-range-tag rubric-range-bottom">1</span><span class="su-meta">${esc(bottomAnchor.label)}</span></div>
+            </td>
           </tr>`;
         }).join('')).join('')}
       </tbody>
