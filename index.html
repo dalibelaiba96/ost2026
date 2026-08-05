@@ -1826,10 +1826,13 @@ function attachAdminStartups(){
       const ids = S.selectedStartupIds || [];
       if(!ids.length) return;
       if(!confirm(`Delete ${ids.length} selected startup${ids.length===1?'':'s'}? This will not delete existing scores.`)) return;
-      await Promise.all(ids.map(id => docDelete(STARTUPS_COLLECTION, id)));
-      S.startups = S.startups.filter(s=>!ids.includes(s.id));
-      S.selectedStartupIds = [];
-      toast('Deleted');
+      const results = await Promise.all(ids.map(id => docDelete(STARTUPS_COLLECTION, id)));
+      const succeededIds = ids.filter((id,i)=>results[i]);
+      const failedIds = ids.filter((id,i)=>!results[i]);
+      await Promise.all(succeededIds.map(id => docDelete(STARTUP_QA_COLLECTION, id))); // best-effort cleanup
+      S.startups = S.startups.filter(s=>!succeededIds.includes(s.id));
+      S.selectedStartupIds = failedIds; // keep whatever failed selected, so it's obvious what's left
+      toast(failedIds.length ? `Deleted ${succeededIds.length}, ${failedIds.length} failed` : 'Deleted');
       render();
     };
   }
@@ -1959,9 +1962,16 @@ function attachAdminStartups(){
   document.querySelectorAll('[data-delete-startup]').forEach(b=>{
     b.onclick = async ()=>{
       if(!confirm('Delete this startup? This will not delete existing scores.')) return;
-      await docDelete(STARTUPS_COLLECTION, b.dataset.deleteStartup);
-      S.startups = S.startups.filter(s=>s.id !== b.dataset.deleteStartup);
-      S.selectedStartupIds = (S.selectedStartupIds||[]).filter(id=>id!==b.dataset.deleteStartup);
+      const id = b.dataset.deleteStartup;
+      const ok = await docDelete(STARTUPS_COLLECTION, id);
+      if(!ok){
+        toast('Could not delete, check your connection and try again');
+        return;
+      }
+      await docDelete(STARTUP_QA_COLLECTION, id); // best-effort cleanup of the paired Q&A doc
+      S.startups = S.startups.filter(s=>s.id !== id);
+      S.selectedStartupIds = (S.selectedStartupIds||[]).filter(x=>x!==id);
+      toast('Deleted');
       render();
     };
   });
