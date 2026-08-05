@@ -2373,7 +2373,10 @@ function renderAdminResults(){
                   <div class="chip-row" style="flex:1;">
                     ${rubric.flatMap(cat=>cat.subcriteria).map(sub=>`<span class="chip">${esc(sub.label)}: ${r.subScores && r.subScores[sub.key]!==undefined ? r.subScores[sub.key] : '—'}</span>`).join('')}
                   </div>
-                  <div style="flex:1;color:var(--muted);font-style:${r.comments?'normal':'italic'};">${esc(r.comments||'No comment')}</div>
+                  <div style="flex:1;">
+                    ${r.categoryComments && Object.values(r.categoryComments).some(v=>v) ? rubric.filter(cat=>r.categoryComments[cat.id]).map(cat=>`<div class="su-meta" style="margin-bottom:4px;"><b>${esc(cat.label.replace(/^\d+\.\s*/,''))}:</b> ${esc(r.categoryComments[cat.id])}</div>`).join('') : ''}
+                    <div style="color:var(--muted);font-style:${r.comments?'normal':'italic'};">${esc(r.comments||'No final comment')}</div>
+                  </div>
                 </div>`;
               }).join('')}`}
             </div>
@@ -2812,7 +2815,8 @@ function ensureDraftScore(ev, s){
       _key: key,
       subScores: { ...(raw.subScores||{}) },
       goNoGo: raw.goNoGo || null,
-      comments: raw.comments || ''
+      comments: raw.comments || '',
+      categoryComments: { ...(raw.categoryComments||{}) } // notes jotted per category while scoring
     };
   }
   return draftScore;
@@ -2828,6 +2832,7 @@ async function persistDraft(ev, s, draft, submitted){
     subScores: { ...draft.subScores },
     goNoGo: draft.goNoGo,
     comments: draft.comments,
+    categoryComments: { ...(draft.categoryComments||{}) },
     submitted: submitted !== undefined ? submitted : !!(existing && existing.submitted),
     updatedAt: Date.now()
   };
@@ -3000,6 +3005,10 @@ function renderEvaluatorDetail(){
               </div>` : ''}
             </div>`;
           }).join('')}
+          <div class="field" style="margin-top:16px;">
+            <label>Notes for this category (optional)</label>
+            <textarea id="categoryCommentsInput" rows="3" placeholder="Jot anything worth remembering about ${esc(currentCat.label.replace(/^\d+\.\s*/,''))} while it's fresh…">${esc(draft.categoryComments[currentCat.id]||'')}</textarea>
+          </div>
           <div class="step-nav">
             <button type="button" class="btn btn-ghost" id="stepPrev" ${step===0?'disabled':''}>&larr; Back</button>
             <div class="row" style="gap:10px;">
@@ -3047,6 +3056,10 @@ function attachEvaluatorDetailListeners(){
   if(!rubric) return;
 
   const draft = ensureDraftScore(ev, s);
+  const totalSteps = rubric.length + 1;
+  const step = Math.min(S.scoringStep || 0, totalSteps - 1);
+  const isFinalStep = step >= rubric.length;
+  const currentCat = isFinalStep ? null : rubric[step];
 
   // Clicking any stepper dot jumps straight to that category/step (autosaving first)
   document.querySelectorAll('[data-step]').forEach(dot=>{
@@ -3128,6 +3141,13 @@ function attachEvaluatorDetailListeners(){
   if(commentsInput){
     commentsInput.oninput = ()=>{
       draft.comments = commentsInput.value;
+      debounceAutosave(ev, s, draft); // autosave shortly after typing pauses
+    };
+  }
+  const categoryCommentsInput = document.getElementById('categoryCommentsInput');
+  if(categoryCommentsInput && !isFinalStep){
+    categoryCommentsInput.oninput = ()=>{
+      draft.categoryComments[currentCat.id] = categoryCommentsInput.value;
       debounceAutosave(ev, s, draft); // autosave shortly after typing pauses
     };
   }
