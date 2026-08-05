@@ -1287,6 +1287,18 @@ async function loadAll(){
   S.scores = await docListAsMap(SCORES_COLLECTION);
   S.resources = await sget(K.resources, []);
 
+  // One-time-per-load cleanup: strip any assignment referencing a startup that no longer
+  // exists (e.g. deleted before the assignment-cleanup fix shipped), so the assigned count
+  // shown to admins and evaluators is always accurate.
+  const existingStartupIds = new Set(S.startups.map(s=>s.id));
+  let evaluatorsNeedSave = false;
+  S.evaluators.forEach(ev=>{
+    const before = ev.assignedStartupIds.length;
+    ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>existingStartupIds.has(id));
+    if(ev.assignedStartupIds.length !== before) evaluatorsNeedSave = true;
+  });
+  if(evaluatorsNeedSave) await sset(K.evaluators, S.evaluators);
+
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
     S.adminCodeExists = true;
@@ -2014,6 +2026,15 @@ function attachAdminStartups(){
       await Promise.all(succeededIds.map(id => docDelete(STARTUP_QA_COLLECTION, id))); // best-effort cleanup
       S.startups = S.startups.filter(s=>!succeededIds.includes(s.id));
       S.selectedStartupIds = failedIds; // keep whatever failed selected, so it's obvious what's left
+      // Remove the deleted startups from every evaluator's assignment list too, otherwise
+      // the assigned count stays inflated with references to startups that no longer exist.
+      let evaluatorsChanged = false;
+      S.evaluators.forEach(ev=>{
+        const before = ev.assignedStartupIds.length;
+        ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>!succeededIds.includes(id));
+        if(ev.assignedStartupIds.length !== before) evaluatorsChanged = true;
+      });
+      if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
       if(failedIds.length){
         const firstError = results.find(r=>!r.ok);
         alert(`Deleted ${succeededIds.length}, but ${failedIds.length} failed.\n\nError: ${firstError.error}\n\nFailed IDs: ${failedIds.join(', ')}`);
@@ -2158,6 +2179,16 @@ function attachAdminStartups(){
       await docDelete(STARTUP_QA_COLLECTION, id); // best-effort cleanup of the paired Q&A doc
       S.startups = S.startups.filter(s=>s.id !== id);
       S.selectedStartupIds = (S.selectedStartupIds||[]).filter(x=>x!==id);
+      // Remove this startup from every evaluator's assignment list too, otherwise the
+      // assigned count stays inflated with a reference to a startup that no longer exists.
+      let evaluatorsChanged = false;
+      S.evaluators.forEach(ev=>{
+        if(ev.assignedStartupIds.includes(id)){
+          ev.assignedStartupIds = ev.assignedStartupIds.filter(x=>x!==id);
+          evaluatorsChanged = true;
+        }
+      });
+      if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
       toast('Deleted');
       render();
     };
