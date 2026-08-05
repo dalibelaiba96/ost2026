@@ -768,7 +768,7 @@ function seedSolutionTechCategory(type){
   return {
     id:'solution_tech', label:'3. Solution & Technology', maxPoints:25,
     subcriteria:[
-      {key:'tech_differentiation', label:'Technology differentiation', maxPoints:6.2, rawScale:true, anchors: isDeep ? [
+      {key:'tech_differentiation', label:'Technology differentiation', maxPoints:6.25, rawScale:true, anchors: isDeep ? [
         {raw:5, label:'Differentiation grounded in proprietary science/engineering (novel method, unique dataset, protected process) with credible defensibility'},
         {raw:4, label:'Real technical differentiation, defensibility not yet secured'},
         {raw:3, label:'Some technical distinction, but similar approaches exist elsewhere'},
@@ -797,7 +797,7 @@ function seedSolutionTechCategory(type){
         {raw:1, label:'Concept, mockup, or idea stage only'},
         {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ]},
-      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6.2, rawScale:true, anchors:[
+      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6.25, rawScale:true, anchors:[
         {raw:5, label:'Clear, compelling, specific; strong reason to choose'},
         {raw:4, label:'Clear and relevant, less differentiated'},
         {raw:3, label:'Present but somewhat generic or unclear'},
