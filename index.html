@@ -367,7 +367,8 @@ const K = {
   scores: 'scores',
   criteria: 'criteria',
   adminCode: 'admin_code',
-  resources: 'resources'
+  resources: 'resources',
+  migrationDone: 'migration_done'
 };
 
 async function sget(key, fallback){
@@ -426,6 +427,13 @@ async function docListAsMap(collectionName){
 // data, copy it over document-by-document so nothing already uploaded/scored is lost.
 async function migrateToPerDocumentStorageIfNeeded(){
   try{
+    // A permanent flag, not just "is the collection currently empty" — otherwise, legitimately
+    // deleting everything down to zero would look identical to "never migrated yet" and this
+    // would silently resurrect old legacy data (including startups you'd already deleted) on
+    // the very next load.
+    const alreadyMigrated = await sget(K.migrationDone, false);
+    if(alreadyMigrated) return;
+
     const existingStartups = await docListAsMap(STARTUPS_COLLECTION);
     if(Object.keys(existingStartups).length === 0){
       const oldStartups = await sget(K.startups, []);
@@ -441,6 +449,7 @@ async function migrateToPerDocumentStorageIfNeeded(){
         await Promise.all(keys.map(k => docSave(SCORES_COLLECTION, k, oldScores[k])));
       }
     }
+    await sset(K.migrationDone, true);
   }catch(e){ console.error('migration failed', e); }
 }
 
