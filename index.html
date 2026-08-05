@@ -2923,7 +2923,10 @@ function renderEvaluatorDetail(){
           }).join('')}
           <div class="step-nav">
             <button type="button" class="btn btn-ghost" id="stepPrev" ${step===0?'disabled':''}>&larr; Back</button>
-            <button type="button" class="btn btn-primary" id="stepNext">${step===rubric.length-1?'Review & finish':'Next section'} &rarr;</button>
+            <div class="row" style="gap:10px;">
+              <button type="button" class="btn btn-ghost" id="stepSaveBtn"><i class="ph ph-floppy-disk"></i> Save</button>
+              <button type="button" class="btn btn-primary" id="stepNext">${step===rubric.length-1?'Review & finish':'Next section'} &rarr;</button>
+            </div>
           </div>
         </div>
         <div class="panel-right">
@@ -2988,6 +2991,16 @@ function attachEvaluatorDetailListeners(){
     nextBtn.onclick = async ()=>{
       await persistDraft(ev, s, draft);
       S.scoringStep = (S.scoringStep||0) + 1;
+      render();
+    };
+  }
+  const stepSaveBtn = document.getElementById('stepSaveBtn');
+  if(stepSaveBtn){
+    stepSaveBtn.onclick = async ()=>{
+      await persistDraft(ev, s, draft); // preserves current submitted status, just saves progress
+      toast('Progress saved');
+      S.currentStartupId = null;
+      draftScore = null;
       render();
     };
   }
