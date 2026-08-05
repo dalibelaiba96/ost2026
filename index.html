@@ -154,6 +154,7 @@
   .section-sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
   .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:600;}
   .pill-pending{background:var(--gold-soft);color:var(--gold);}
+  .pill-notstarted{background:var(--danger-soft);color:var(--danger);}
   .pill-partial{background:#FDE9D0;color:#B0630A;}
   .pill-done{background:var(--accent-soft);color:var(--accent);}
   .tab-pill{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:100px;font-size:12.5px;font-weight:600;color:var(--muted);transition:background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);}
@@ -182,7 +183,7 @@
   .startup-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);animation:fadeSlideIn var(--t-base) var(--ease) backwards;}
   .startup-tile.is-scored{border-left-color:var(--accent);}
   .startup-tile.is-partial{border-left-color:#B0630A;}
-  .startup-tile.is-pending{border-left-color:var(--gold);}
+  .startup-tile.is-pending{border-left-color:var(--danger);}
   .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
   .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -2592,7 +2593,7 @@ function renderEvaluatorList(){
         const pct = ownTotal===null ? null : (ownTotal/maxTotal*100);
         const g = gaugeColor(pct);
         const statusClass = own && own.submitted ? 'is-scored' : (own ? 'is-partial' : 'is-pending');
-        const statusPillClass = own && own.submitted ? 'pill-done' : (own ? 'pill-partial' : 'pill-pending');
+        const statusPillClass = own && own.submitted ? 'pill-done' : (own ? 'pill-partial' : 'pill-notstarted');
         const statusLabel = own && own.submitted ? 'Scored' : (own ? 'In progress' : 'Pending');
         return `
         <div class="startup-tile ${statusClass}" data-open="${s.id}" style="animation-delay:${Math.min(i,12)*25}ms;">
