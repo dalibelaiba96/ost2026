@@ -1238,6 +1238,7 @@ let S = {
   scores: {},            // key `${evalId}::${startupId}` -> {subScores, goNoGo, comments, updatedAt}
   resources: [],         // admin-posted reference docs/links shown on the evaluator home page
   selectedStartupIds: [],// checked rows in the admin Startups table, for bulk delete
+  adminStartupSearch: '', // live search text for the admin Startups table
   currentStartupId: null,
   scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
   evaluatorHome: true,   // true = show the evaluator landing dashboard first, false = show their assigned list
@@ -1912,13 +1913,19 @@ function renderAdminStartups(){
     ${QUADRANTS.map(q=>`<button class="tab-pill ${quadTab===q.key?'active':''}" data-quad-filter="${q.key}">${esc(q.label)} (${countFor(q.key)})</button>`).join('')}
   </div>
 
+  ${S.startups.length ? `
+  <div style="position:relative;margin-bottom:16px;max-width:360px;">
+    <i class="ph ph-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);"></i>
+    <input id="startupSearchInput" placeholder="Search startups by name or sector..." value="${escAttr(S.adminStartupSearch||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px 9px 34px;font-size:13.5px;"/>
+  </div>` : ''}
+
   ${S.startups.length === 0 ? `<div class="empty"><i class="ph ph-upload-simple"></i>No startups yet. Upload a CSV or Excel export from F6S to get started.</div>` : (visibleStartups.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
   <div class="table-wrap">
     <table>
       <thead><tr><th style="width:36px;"><input type="checkbox" id="selectAllStartups" ${allVisibleSelected?'checked':''}/></th><th>Name</th><th>Sector</th><th>Track</th><th>Type</th><th>Country</th><th>Deck</th><th></th></tr></thead>
       <tbody>
         ${visibleStartups.map(s=>`
-          <tr>
+          <tr data-search-blob="${escAttr((s.name+' '+(s.sector||'')).toLowerCase())}">
             <td><input type="checkbox" data-select-startup="${s.id}" ${selected.includes(s.id)?'checked':''}/></td>
             <td><b>${esc(s.name)}</b><div class="su-meta">${esc(s.oneLiner||'')}</div></td>
             <td>${esc(s.sector||'—')}</td>
@@ -1952,6 +1959,24 @@ function attachAdminStartups(){
   document.querySelectorAll('[data-quad-filter]').forEach(b=>{
     b.onclick = ()=>{ S.adminStartupQuadrant = b.dataset.quadFilter; S.selectedStartupIds = []; render(); };
   });
+
+  const searchInput = document.getElementById('startupSearchInput');
+  if(searchInput){
+    searchInput.oninput = ()=>{
+      S.adminStartupSearch = searchInput.value;
+      const q = searchInput.value.trim().toLowerCase();
+      document.querySelectorAll('[data-search-blob]').forEach(row=>{
+        row.style.display = (!q || row.dataset.searchBlob.includes(q)) ? '' : 'none';
+      });
+    };
+    // Reapply whatever search was active before this re-render (checkbox clicks etc. rebuild the DOM)
+    if(S.adminStartupSearch){
+      const q = S.adminStartupSearch.trim().toLowerCase();
+      document.querySelectorAll('[data-search-blob]').forEach(row=>{
+        row.style.display = (!q || row.dataset.searchBlob.includes(q)) ? '' : 'none';
+      });
+    }
+  }
 
   const quadTab = S.adminStartupQuadrant || 'all';
   const visibleStartups = S.startups.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
