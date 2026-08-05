@@ -1142,7 +1142,13 @@ function toast(msg){
 async function loadAll(){
   await migrateToPerDocumentStorageIfNeeded();
   const startupsMap = await docListAsMap(STARTUPS_COLLECTION);
-  S.startups = Object.values(startupsMap).sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+  // The real Firestore document key is always authoritative — some older/migrated
+  // documents can have a stale "id" field embedded in their data that no longer matches
+  // the actual document key, which silently breaks deletes (deleting by the stale id
+  // just no-ops on a document that doesn't exist, while the real one stays untouched).
+  S.startups = Object.entries(startupsMap)
+    .map(([docId, data]) => ({ ...data, id: docId }))
+    .sort((a,b)=> (a.name||'').localeCompare(b.name||''));
 
   // One-time cleanup: startups saved before the Q&A-splitting fix still have the heavy
   // application data embedded in their summary doc. Split those out now so every future
