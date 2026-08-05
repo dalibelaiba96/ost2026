@@ -3054,6 +3054,20 @@ function attachEvaluatorDetailListeners(){
   const saveBtn = document.getElementById('saveScoreBtn');
   if(saveBtn){
     saveBtn.onclick = async ()=>{
+      const missing = [];
+      rubric.forEach(cat=>{
+        const unscored = cat.subcriteria.filter(sub=>draft.subScores[sub.key]===undefined);
+        if(unscored.length){
+          missing.push(`${cat.label.replace(/^\d+\.\s*/,'')}: ${unscored.map(u=>u.label).join(', ')}`);
+        }
+      });
+      if(!draft.goNoGo) missing.push('Final call: pick Go or No-Go');
+
+      if(missing.length){
+        alert(`Can't submit yet, still missing:\n\n${missing.join('\n')}\n\nYou can keep working and use "Save" to keep your progress without submitting.`);
+        return;
+      }
+
       await persistDraft(ev, s, draft, true); // explicitly mark as submitted/finished
       toast('Score submitted');
       S.currentStartupId = null;
