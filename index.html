@@ -136,6 +136,13 @@
   .dash-alert i{font-size:20px;flex-shrink:0;margin-top:1px;}
   .dash-alert b{display:block;margin-bottom:2px;}
   .scoring-overview-label{font-weight:600;font-size:13.5px;}
+  .rubric-track-card{display:flex;align-items:center;gap:14px;flex:1;min-width:220px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:16px 18px;text-align:left;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
+  .rubric-track-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
+  .rubric-track-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+  .rubric-track-name{font-weight:700;font-size:15px;}
+  .rubric-track-arrow{margin-left:auto;color:var(--muted);flex-shrink:0;}
+  .rubric-modal-table td{vertical-align:top;}
+  .rubric-modal-cat-cell{background:var(--ost-off-white);}
   .role-title{font-weight:600;font-size:14.5px;}
   .role-desc{font-size:12.5px;color:var(--muted);}
   .error-msg{color:var(--danger);font-size:12.5px;margin-top:8px;}
@@ -2423,21 +2430,60 @@ const SCORING_OVERVIEW = [
   {icon:'ph-globe-hemisphere-west', label:'Market Fit', desc:'Go-to-market, expansion plans'}
 ];
 
-function rubricOverviewHtml(track, type){
+// Builds the rubric table shown inside the modal for a given track+type
+function rubricModalTableHtml(track, type){
   const rubric = RUBRICS[track+':'+type];
   if(!rubric) return '';
-  const label = (track==='seed'?'Seed':'Pre-Seed') + ' — ' + (type==='deeptech'?'Deeptech':'Tech-enabled');
   return `
-    <details style="margin-bottom:8px;">
-      <summary style="cursor:pointer;font-weight:600;font-size:13px;padding:6px 0;color:var(--muted);">${esc(label)} (${rubricMaxTotal(rubric)} pts)</summary>
-      <div class="kv" style="margin-top:8px;">
-        ${rubric.map(cat=>`
-          <div>${esc(cat.label)}</div>
-          <div>${cat.subcriteria.map(sub=>esc(sub.label)+' ('+sub.maxPoints+' pts)').join(', ')} — <b>${cat.maxPoints} pts total</b></div>
-        `).join('')}
-      </div>
-    </details>
-  `;
+  <div class="table-wrap">
+    <table class="rubric-modal-table">
+      <thead><tr><th>Category</th><th>Sub-criterion</th><th>Max</th><th>What a top score (5) looks like</th></tr></thead>
+      <tbody>
+        ${rubric.map(cat=>cat.subcriteria.map((sub,i)=>{
+          const scaleVals = sub.anchors.map(a=> sub.rawScale ? a.raw : a.points);
+          const topAnchor = sub.anchors.find((a,idx)=> scaleVals[idx] === Math.max(...scaleVals));
+          return `<tr>
+            ${i===0 ? `<td rowspan="${cat.subcriteria.length}" class="rubric-modal-cat-cell"><b>${esc(cat.label)}</b><div class="su-meta">${cat.maxPoints} pts total</div></td>` : ''}
+            <td>${esc(sub.label)}</td>
+            <td class="mono" style="font-weight:700;">${sub.maxPoints}</td>
+            <td class="su-meta">${esc(topAnchor.label)}</td>
+          </tr>`;
+        }).join('')).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// Opens a modal showing the full rubric for a track, with a live Tech-enabled/Deeptech toggle
+function openRubricModal(track){
+  let root = document.getElementById('deckModalRoot');
+  if(!root){ root = document.createElement('div'); root.id = 'deckModalRoot'; document.body.appendChild(root); }
+  let currentType = 'tech-enabled';
+  const paint = ()=>{
+    const rubric = RUBRICS[track+':'+currentType];
+    root.innerHTML = `
+      <div class="deck-modal-backdrop" id="rubricModalBackdrop">
+        <div class="deck-modal" style="max-width:780px;height:min(85vh, 720px);">
+          <div class="deck-modal-head">
+            <span><i class="ph-fill ph-list-checks"></i> ${track==='seed'?'Seed':'Pre-Seed'} Scoring Rubric</span>
+            <button class="icon-btn" id="rubricModalClose"><i class="ph ph-x"></i></button>
+          </div>
+          <div style="padding:20px 24px;overflow-y:auto;">
+            <div class="row" style="gap:8px;margin-bottom:16px;">
+              <button class="tab-pill ${currentType==='tech-enabled'?'active':''}" id="rubricTypeTech">Tech-enabled</button>
+              <button class="tab-pill ${currentType==='deeptech'?'active':''}" id="rubricTypeDeep">Deeptech</button>
+            </div>
+            ${rubricModalTableHtml(track, currentType)}
+            <p class="su-meta" style="margin-top:14px;">Total: <b>${rubricMaxTotal(rubric)} points</b> across ${rubric.length} categories. You'll rate each sub-criterion 1-5 while scoring, the platform handles the weighting behind the scenes.</p>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('rubricModalClose').onclick = ()=>{ root.innerHTML=''; };
+    document.getElementById('rubricModalBackdrop').onclick = (e)=>{ if(e.target.id==='rubricModalBackdrop') root.innerHTML=''; };
+    document.getElementById('rubricTypeTech').onclick = ()=>{ currentType='tech-enabled'; paint(); };
+    document.getElementById('rubricTypeDeep').onclick = ()=>{ currentType='deeptech'; paint(); };
+  };
+  paint();
 }
 
 function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
@@ -2536,11 +2582,25 @@ function renderEvaluatorHome(){
           </div>
         `).join('')}
       </div>
-      <p class="su-meta" style="margin:14px 0 10px;">Seed-stage startups add a dedicated Problem & Impact category. Exact point values always show live while you're scoring, here's the full breakdown if you want it upfront:</p>
-      ${rubricOverviewHtml('pre-seed','tech-enabled')}
-      ${rubricOverviewHtml('pre-seed','deeptech')}
-      ${rubricOverviewHtml('seed','tech-enabled')}
-      ${rubricOverviewHtml('seed','deeptech')}
+      <p class="su-meta" style="margin:14px 0 12px;">Seed-stage startups add a dedicated Problem & Impact category. Exact point values always show live while you're scoring. Want the full breakdown upfront? Pick a track:</p>
+      <div class="row" style="gap:14px;flex-wrap:wrap;">
+        <button class="rubric-track-card" data-rubric-track="pre-seed">
+          <div class="rubric-track-icon"><i class="ph-fill ph-seedling"></i></div>
+          <div>
+            <div class="rubric-track-name">Pre-Seed rubric</div>
+            <div class="su-meta">${rubricMaxTotal(RUBRICS['pre-seed:tech-enabled'])} points &middot; ${RUBRICS['pre-seed:tech-enabled'].length} categories</div>
+          </div>
+          <i class="ph ph-arrow-right rubric-track-arrow"></i>
+        </button>
+        <button class="rubric-track-card" data-rubric-track="seed">
+          <div class="rubric-track-icon"><i class="ph-fill ph-plant"></i></div>
+          <div>
+            <div class="rubric-track-name">Seed rubric</div>
+            <div class="su-meta">${rubricMaxTotal(RUBRICS['seed:tech-enabled'])} points &middot; ${RUBRICS['seed:tech-enabled'].length} categories</div>
+          </div>
+          <i class="ph ph-arrow-right rubric-track-arrow"></i>
+        </button>
+      </div>
     </div>
 
     ${S.resources.length ? `
@@ -2617,6 +2677,9 @@ function attachEvaluatorShell(){
   if(goToListBtn) goToListBtn.onclick = ()=>{ S.evaluatorHome = false; render(); };
   const backHomeBtn = document.getElementById('backHomeFromList');
   if(backHomeBtn) backHomeBtn.onclick = ()=>{ S.evaluatorHome = true; render(); };
+  document.querySelectorAll('[data-rubric-track]').forEach(b=>{
+    b.onclick = ()=> openRubricModal(b.dataset.rubricTrack);
+  });
   document.querySelectorAll('[data-eval-quad-filter]').forEach(b=>{
     b.onclick = ()=>{ S.evalQuadrant = b.dataset.evalQuadFilter; render(); };
   });
