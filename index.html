@@ -86,6 +86,10 @@
     width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#FCFCFA;
   }
   .field input:focus, .field select:focus, .field textarea:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .password-field{position:relative;}
+  .password-field input{padding-right:42px;}
+  .password-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);padding:7px 9px;border-radius:6px;transition:background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);}
+  .password-toggle:hover{background:var(--ost-off-white);color:var(--ink);}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;transition:background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);}
   .btn-primary{background:var(--accent);color:#fff;box-shadow:var(--shadow-xs);}
   .btn-primary:hover{background:var(--accent-dark);transform:translateY(-1px);box-shadow:var(--shadow-sm);}
@@ -1548,7 +1552,10 @@ function renderAdminGate(){
       <p class="sub">${S.adminCodeExists ? 'Enter the admin code to continue.' : 'Create a code you will use to access the admin panel. Share it only with organizers.'}</p>
       <div class="field">
         <label>${S.adminCodeExists ? 'Admin code' : 'New admin code'}</label>
-        <input type="password" id="adminCodeInput" placeholder="e.g. a passphrase" />
+        <div class="password-field">
+          <input type="password" id="adminCodeInput" name="password" autocomplete="current-password" placeholder="e.g. a passphrase" />
+          <button type="button" class="password-toggle" data-toggle-password="adminCodeInput"><i class="ph ph-eye"></i></button>
+        </div>
       </div>
       <button class="btn btn-primary btn-block" id="adminCodeSubmit">${S.adminCodeExists ? 'Enter' : 'Create & continue'}</button>
       <div class="error-msg" id="adminErr" style="display:none;"></div>
@@ -2488,7 +2495,10 @@ function renderEvalLogin(){
       </div>
       <div class="field">
         <label>Access code</label>
-        <input type="password" id="evalCodeInput" placeholder="your code"/>
+        <div class="password-field">
+          <input type="password" id="evalCodeInput" name="password" autocomplete="current-password" placeholder="your code"/>
+          <button type="button" class="password-toggle" data-toggle-password="evalCodeInput"><i class="ph ph-eye"></i></button>
+        </div>
       </div>
       <button class="btn btn-primary btn-block" id="evalLoginSubmit">Enter</button>
       <div class="error-msg" id="evalErr" style="display:none;"></div>
@@ -3453,6 +3463,22 @@ document.addEventListener('click', (e)=>{
   if(!deckEl) return;
   e.preventDefault();
   openDeckPreview(deckEl.dataset.deckPreview);
+});
+
+/* ============ GLOBAL PASSWORD TOGGLE (delegated, survives re-renders) ============ */
+document.addEventListener('click', (e)=>{
+  const toggleBtn = e.target.closest('[data-toggle-password]');
+  if(!toggleBtn) return;
+  const input = document.getElementById(toggleBtn.dataset.togglePassword);
+  if(!input) return;
+  const icon = toggleBtn.querySelector('i');
+  if(input.type === 'password'){
+    input.type = 'text';
+    if(icon){ icon.classList.remove('ph-eye'); icon.classList.add('ph-eye-slash'); }
+  } else {
+    input.type = 'password';
+    if(icon){ icon.classList.remove('ph-eye-slash'); icon.classList.add('ph-eye'); }
+  }
 });
 
 /* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
