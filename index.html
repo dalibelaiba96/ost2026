@@ -1168,7 +1168,6 @@ let S = {
   currentStartupId: null,
   scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
   evaluatorHome: true,   // true = show the evaluator landing dashboard first, false = show their assigned list
-  evalQuadrant: 'all', // 'all' or one of QUADRANTS[].key
   csvPreview: null,      // rows parsed but not yet saved
   loading: true
 };
@@ -2651,23 +2650,15 @@ function renderEvaluatorHome(){
 
 function renderEvaluatorList(){
   const ev = S.evaluator;
-  const allAssigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
-  const quadTab = S.evalQuadrant || 'all';
-  const assigned = allAssigned.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
-  const countFor = (key) => allAssigned.filter(s=>quadrantKeyOf(s)===key).length;
+  const assigned = S.startups.filter(s=> ev.assignedStartupIds.includes(s.id));
   return `
   ${topbar(`Logged in as <b>${esc(ev.name)}</b><button class="logout" id="logoutBtn">Log out</button>`)}
   <div class="content">
     <button class="back-link back-row" id="backHomeFromList">&larr; Home</button>
     <div class="section-title">Your assigned startups</div>
-    <p class="section-sub">${assigned.length} of ${allAssigned.length} shown</p>
+    <p class="section-sub">${assigned.length} assigned to you</p>
 
-    <div class="row" style="gap:6px;margin-bottom:18px;flex-wrap:wrap;">
-      <button class="tab-pill ${quadTab==='all'?'active':''}" data-eval-quad-filter="all">All (${allAssigned.length})</button>
-      ${QUADRANTS.map(q=>`<button class="tab-pill ${quadTab===q.key?'active':''}" data-eval-quad-filter="${q.key}">${esc(q.label)} (${countFor(q.key)})</button>`).join('')}
-    </div>
-
-    ${allAssigned.length===0 ? `<div class="empty"><i class="ph ph-tray"></i>No startups have been assigned to you yet. Check with the admin.</div>` : (assigned.length===0 ? `<div class="empty"><i class="ph ph-funnel-x"></i>No startups match this filter.</div>` : `
+    ${assigned.length===0 ? `<div class="empty"><i class="ph ph-tray"></i>No startups have been assigned to you yet. Check with the admin.</div>` : `
     <div class="startup-grid">
       ${assigned.map((s,i)=>{
         const own = S.scores[ev.id+'::'+s.id];
@@ -2696,7 +2687,7 @@ function renderEvaluatorList(){
           ${s.country ? `<div class="su-meta">${esc(s.country)}</div>` : ''}
         </div>`;
       }).join('')}
-    </div>`)}
+    </div>`}
   </div>
   <div class="toast" id="toast"></div>`;
 }
@@ -2709,9 +2700,6 @@ function attachEvaluatorShell(){
   if(backHomeBtn) backHomeBtn.onclick = ()=>{ S.evaluatorHome = true; render(); };
   document.querySelectorAll('[data-rubric-track]').forEach(b=>{
     b.onclick = ()=> openRubricModal(b.dataset.rubricTrack);
-  });
-  document.querySelectorAll('[data-eval-quad-filter]').forEach(b=>{
-    b.onclick = ()=>{ S.evalQuadrant = b.dataset.evalQuadFilter; render(); };
   });
   document.querySelectorAll('[data-open]').forEach(card=>{
     card.onclick = async ()=>{
