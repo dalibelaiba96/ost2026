@@ -141,8 +141,11 @@
   .rubric-track-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-soft);color:var(--accent-dark);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
   .rubric-track-name{font-weight:700;font-size:15px;}
   .rubric-track-arrow{margin-left:auto;color:var(--muted);flex-shrink:0;}
-  .rubric-modal-table td{vertical-align:top;}
-  .rubric-modal-cat-cell{background:var(--ost-off-white);min-width:150px;}
+  .rubric-modal-table td{vertical-align:top;padding:12px 14px;}
+  .rubric-modal-cat-cell{background:var(--ost-off-white);min-width:150px;vertical-align:middle !important;border-right:1px solid var(--line);}
+  .rubric-modal-table th:nth-child(3), .rubric-modal-table td:nth-child(3),
+  .rubric-modal-table th:nth-child(4), .rubric-modal-table td:nth-child(4){text-align:center;}
+  .rubric-modal-table .bar-track{margin-left:auto;margin-right:auto;}
   .rubric-modal-cat-head{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink);}
   .rubric-modal-cat-head i{color:var(--accent-dark);font-size:16px;}
   .rubric-range-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;}
@@ -195,10 +198,10 @@
   .startup-list{display:flex;flex-direction:column;gap:10px;}
   .startup-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px;}
   .startup-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);animation:fadeSlideIn var(--t-base) var(--ease) backwards;}
-  .startup-tile.is-scored{border-left-color:var(--accent);}
-  .startup-tile.is-partial{border-left-color:#EA7F0E;}
-  .startup-tile.is-pending{border-left-color:#DC2626;}
-  .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
+  .startup-tile.is-scored{border-left-color:var(--accent);background:#F1FBF1;}
+  .startup-tile.is-partial{border-left-color:#EA7F0E;background:#FFF8EA;}
+  .startup-tile.is-pending{border-left-color:#DC2626;background:#FDF1EF;}
+  .startup-tile:hover{border-top-color:var(--accent);border-right-color:var(--accent);border-bottom-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
   .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
 
