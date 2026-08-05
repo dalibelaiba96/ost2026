@@ -154,8 +154,8 @@
   .section-sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
   .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;font-size:11.5px;font-weight:600;}
   .pill-pending{background:var(--gold-soft);color:var(--gold);}
-  .pill-notstarted{background:#F5DEDA;color:#8B2A1C;}
-  .pill-partial{background:#FEF3C7;color:#F59E0B;}
+  .pill-notstarted{background:#FCE0DC;color:#DC2626;}
+  .pill-partial{background:#FEEACB;color:#EA7F0E;}
   .pill-done{background:var(--accent-soft);color:var(--accent);}
   .tab-pill{border:1px solid var(--line);background:#fff;padding:6px 14px;border-radius:100px;font-size:12.5px;font-weight:600;color:var(--muted);transition:background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);}
   .tab-pill:hover{border-color:var(--accent);}
@@ -182,8 +182,8 @@
   .startup-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:14px;}
   .startup-tile{background:#fff;border:1px solid var(--line);border-left:3px solid var(--line);border-radius:var(--radius-lg);padding:16px;cursor:pointer;transition:border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);animation:fadeSlideIn var(--t-base) var(--ease) backwards;}
   .startup-tile.is-scored{border-left-color:var(--accent);}
-  .startup-tile.is-partial{border-left-color:#F59E0B;}
-  .startup-tile.is-pending{border-left-color:#8B2A1C;}
+  .startup-tile.is-partial{border-left-color:#EA7F0E;}
+  .startup-tile.is-pending{border-left-color:#DC2626;}
   .startup-tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-md);}
   .su-name{font-weight:600;font-size:14.5px;}
   .su-meta{font-size:12px;color:var(--muted);margin-top:2px;}
@@ -2256,7 +2256,7 @@ function renderAdminResults(){
             <td><b>${esc(s.name)}</b></td>
             <td>${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}</td>
             <td>${s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : '<span style="color:var(--danger);">Not set</span>'}</td>
-            <td>${submittedRows.length}${partialCount?` <span style="color:#F59E0B;">(+${partialCount} in progress)</span>`:''} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
+            <td>${submittedRows.length}${partialCount?` <span style="color:#EA7F0E;">(+${partialCount} in progress)</span>`:''} / ${S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length || '—'}</td>
             <td>${goCount||noGoCount ? `<span class="chip" style="background:var(--accent-soft);color:var(--accent);">Go: ${goCount}</span> <span class="chip" style="background:var(--danger-soft);color:var(--danger);">No-Go: ${noGoCount}</span>` : '—'}</td>
             <td class="mono" style="font-weight:700;">${avgTotal===null?'—':avgTotal.toFixed(1)+' / '+maxTotal}</td>
           </tr>
@@ -2464,7 +2464,7 @@ function renderEvaluatorPersonalStats(ev, assigned, scoredCount){
     <div class="stat-grid" style="margin-bottom:20px;">
       ${statCard('ph-buildings', assigned.length, 'Assigned to you')}
       ${statCard('ph-check-circle', scoredCount, 'Submitted', scoredCount>0 ? {bg:'var(--accent-soft)',fg:'var(--accent-dark)'} : null)}
-      ${statCard('ph-pencil-simple-line', partialCount, 'In progress, not submitted', partialCount>0 ? {bg:'#FEF3C7',fg:'#F59E0B'} : null)}
+      ${statCard('ph-pencil-simple-line', partialCount, 'In progress, not submitted', partialCount>0 ? {bg:'#FEEACB',fg:'#EA7F0E'} : null)}
       ${statCard('ph-hourglass', pendingCount, 'Not started', pendingCount>0 ? {bg:'var(--danger-soft)',fg:'var(--danger)'} : {bg:'var(--accent-soft)',fg:'var(--accent-dark)'})}
       ${statCard('ph-globe-hemisphere-west', countriesSorted.length, 'Countries in your list')}
     </div>
