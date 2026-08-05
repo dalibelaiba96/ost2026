@@ -2454,7 +2454,7 @@ function rubricModalTableHtml(track, type){
   return `
   <div class="table-wrap">
     <table class="rubric-modal-table">
-      <thead><tr><th>Category</th><th>Sub-criterion</th><th>Weight</th><th>Scoring range (1-5)</th></tr></thead>
+      <thead><tr><th>Category</th><th>Sub-criterion</th><th>Weight</th><th>Max Points</th><th>Scoring range (1-5)</th></tr></thead>
       <tbody>
         ${rubric.map(cat=>cat.subcriteria.map((sub,i)=>{
           const scaleVals = sub.anchors.map(a=> sub.rawScale ? a.raw : a.points);
@@ -2467,11 +2467,12 @@ function rubricModalTableHtml(track, type){
               <div class="rubric-modal-cat-head"><i class="ph-fill ${CATEGORY_ICONS[cat.id]||'ph-list-checks'}"></i> <b>${esc(cat.label.replace(/^\d+\.\s*/,''))}</b></div>
               <div class="su-meta">${cat.maxPoints} pts total</div>
             </td>` : ''}
+            <td><div style="font-weight:600;font-size:13px;">${esc(sub.label)}</div></td>
             <td>
-              <div style="font-weight:600;font-size:13px;">${esc(sub.label)}</div>
-              <div class="bar-track" style="margin-top:6px;width:90px;"><div class="bar-fill" style="width:${weightPct}%;background:var(--ost-navy);"></div></div>
+              <div class="mono" style="font-weight:700;">${weightPct.toFixed(2)}%</div>
+              <div class="bar-track" style="margin-top:6px;width:70px;"><div class="bar-fill" style="width:${weightPct}%;background:var(--ost-navy);"></div></div>
             </td>
-            <td class="mono" style="font-weight:700;">${sub.maxPoints}<span class="su-meta" style="font-weight:400;"> pts</span></td>
+            <td class="mono" style="font-weight:700;text-align:center;">5</td>
             <td>
               <div class="rubric-range-row"><span class="rubric-range-tag rubric-range-top">5</span><span class="su-meta">${esc(topAnchor.label)}</span></div>
               <div class="rubric-range-row"><span class="rubric-range-tag rubric-range-bottom">1</span><span class="su-meta">${esc(bottomAnchor.label)}</span></div>
