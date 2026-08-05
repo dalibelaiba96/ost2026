@@ -1584,8 +1584,8 @@ async function attachAdminGate(){
       S.adminCodeExists = true;
       S.adminAuthed = true;
       localStorage.setItem('dealroom_admin_authed', '1');
-      toast('Admin code created');
       render();
+      toast('Admin code created');
     } else {
       const existing = await sget(K.adminCode, null);
       if(val === existing){
@@ -1821,8 +1821,8 @@ function attachAdminResources(){
       S.resources.push({ id: uid('res'), title, link, body });
       await sset(K.resources, S.resources);
       holder.innerHTML = '';
-      toast('Resource added');
       render();
+      toast('Resource added');
     };
   };
   document.querySelectorAll('[data-delete-resource]').forEach(b=>{
@@ -2035,13 +2035,13 @@ function attachAdminStartups(){
         if(ev.assignedStartupIds.length !== before) evaluatorsChanged = true;
       });
       if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
+      render();
       if(failedIds.length){
         const firstError = results.find(r=>!r.ok);
         alert(`Deleted ${succeededIds.length}, but ${failedIds.length} failed.\n\nError: ${firstError.error}\n\nFailed IDs: ${failedIds.join(', ')}`);
       } else {
         toast('Deleted');
       }
-      render();
     };
   }
 
@@ -2160,8 +2160,8 @@ function attachAdminStartups(){
       await Promise.all(newOnes.map(su => saveStartupSummary(su)));
       S.startups = [...S.startups, ...newOnes];
       S.csvPreview = null;
-      toast('Startups saved');
       render();
+      toast(`${newOnes.length} startup${newOnes.length===1?'':'s'} saved`);
     };
   }
   const cancelBtn = document.getElementById('cancelPreview');
@@ -2189,8 +2189,8 @@ function attachAdminStartups(){
         }
       });
       if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
-      toast('Deleted');
       render();
+      toast('Deleted');
     };
   });
   document.querySelectorAll('[data-edit-deck]').forEach(b=>{
@@ -2252,6 +2252,9 @@ function renderAssignBox(ev){
             ${esc(s.name)} <span class="su-meta">${esc(s.sector||'')} &middot; ${(s.track||'pre-seed')==='seed'?'Seed':'Pre-Seed'}${s.type?' &middot; '+(s.type==='deeptech'?'Deeptech':'Tech-enabled'):''}</span>
           </label>`).join('')}
       </div>
+      <div class="row" style="margin-top:14px;justify-content:flex-end;">
+        <button class="btn btn-primary" data-confirm-assign="${ev.id}"><i class="ph ph-check"></i> Done (${ev.assignedStartupIds.length} assigned)</button>
+      </div>
     </div>`;
 }
 function attachAdminEvaluators(){
@@ -2271,8 +2274,8 @@ function attachAdminEvaluators(){
       S.evaluators.push({ id: uid('ev'), name, code, assignedStartupIds: [] });
       await sset(K.evaluators, S.evaluators);
       holder.innerHTML='';
-      toast('Evaluator added');
       render();
+      toast('Evaluator added');
     };
   };
   document.querySelectorAll('[data-delete-eval]').forEach(b=>{
@@ -2316,8 +2319,8 @@ function attachAdminEvaluators(){
           if(!ev.assignedStartupIds.includes(cb.dataset.su)) ev.assignedStartupIds.push(cb.dataset.su);
         });
         await sset(K.evaluators, S.evaluators);
-        toast('Assigned');
         render();
+        toast('Assigned');
       };
     }
     const clearAllBtn = document.querySelector(`[data-clear-all="${openEvId}"]`);
@@ -2331,8 +2334,8 @@ function attachAdminEvaluators(){
         });
         ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>!visibleIds.has(id));
         await sset(K.evaluators, S.evaluators);
-        toast('Cleared');
         render();
+        toast('Cleared');
       };
     }
     document.querySelectorAll(`#assignGrid-${openEvId} [data-su]`).forEach(cb=>{
@@ -2344,6 +2347,15 @@ function attachAdminEvaluators(){
         render();
       };
     });
+    const confirmAssignBtn = document.querySelector(`[data-confirm-assign="${openEvId}"]`);
+    if(confirmAssignBtn){
+      confirmAssignBtn.onclick = ()=>{
+        S.assignBoxOpenFor = null;
+        S.assignSearchQuery = '';
+        render();
+        toast(`Assignment confirmed, ${ev.assignedStartupIds.length} startup${ev.assignedStartupIds.length===1?'':'s'} assigned to ${ev.name}`);
+      };
+    }
   }
 }
 
@@ -3147,10 +3159,10 @@ function attachEvaluatorDetailListeners(){
   if(stepSaveBtn){
     stepSaveBtn.onclick = async ()=>{
       await persistDraft(ev, s, draft); // preserves current submitted status, just saves progress
-      toast('Progress saved');
       S.currentStartupId = null;
       draftScore = null;
       render();
+      toast('Progress saved');
     };
   }
 
@@ -3213,10 +3225,10 @@ function attachEvaluatorDetailListeners(){
   if(saveDraftBtn){
     saveDraftBtn.onclick = async ()=>{
       await persistDraft(ev, s, draft); // preserves current submitted status, just saves progress
-      toast('Progress saved');
       S.currentStartupId = null;
       draftScore = null;
       render();
+      toast('Progress saved');
     };
   }
 
@@ -3238,10 +3250,10 @@ function attachEvaluatorDetailListeners(){
       }
 
       await persistDraft(ev, s, draft, true); // explicitly mark as submitted/finished
-      toast('Score submitted');
       S.currentStartupId = null;
       draftScore = null;
       render();
+      toast('Score submitted');
     };
   }
 }
@@ -3356,9 +3368,9 @@ function openDeckLinkEditor(startup){
   document.getElementById('saveDeckLink').onclick = async ()=>{
     startup.deckOverride = document.getElementById('deckLinkInput').value.trim();
     await saveStartupSummary(startup);
-    toast('Deck link saved');
     close();
     render();
+    toast('Deck link saved');
   };
 }
 
