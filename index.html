@@ -397,8 +397,8 @@ async function docSave(collectionName, id, value){
 async function docDelete(collectionName, id){
   try{
     await deleteDoc(doc(db, collectionName, id));
-    return true;
-  }catch(e){ console.error('doc delete failed', collectionName, id, e); return false; }
+    return { ok:true };
+  }catch(e){ console.error('doc delete failed', collectionName, id, e); return { ok:false, error: (e && e.message) || String(e) }; }
 }
 async function docGet(collectionName, id){
   try{
@@ -1827,12 +1827,17 @@ function attachAdminStartups(){
       if(!ids.length) return;
       if(!confirm(`Delete ${ids.length} selected startup${ids.length===1?'':'s'}? This will not delete existing scores.`)) return;
       const results = await Promise.all(ids.map(id => docDelete(STARTUPS_COLLECTION, id)));
-      const succeededIds = ids.filter((id,i)=>results[i]);
-      const failedIds = ids.filter((id,i)=>!results[i]);
+      const succeededIds = ids.filter((id,i)=>results[i].ok);
+      const failedIds = ids.filter((id,i)=>!results[i].ok);
       await Promise.all(succeededIds.map(id => docDelete(STARTUP_QA_COLLECTION, id))); // best-effort cleanup
       S.startups = S.startups.filter(s=>!succeededIds.includes(s.id));
       S.selectedStartupIds = failedIds; // keep whatever failed selected, so it's obvious what's left
-      toast(failedIds.length ? `Deleted ${succeededIds.length}, ${failedIds.length} failed` : 'Deleted');
+      if(failedIds.length){
+        const firstError = results.find(r=>!r.ok);
+        alert(`Deleted ${succeededIds.length}, but ${failedIds.length} failed.\n\nError: ${firstError.error}\n\nFailed IDs: ${failedIds.join(', ')}`);
+      } else {
+        toast('Deleted');
+      }
       render();
     };
   }
@@ -1963,9 +1968,9 @@ function attachAdminStartups(){
     b.onclick = async ()=>{
       if(!confirm('Delete this startup? This will not delete existing scores.')) return;
       const id = b.dataset.deleteStartup;
-      const ok = await docDelete(STARTUPS_COLLECTION, id);
-      if(!ok){
-        toast('Could not delete, check your connection and try again');
+      const result = await docDelete(STARTUPS_COLLECTION, id);
+      if(!result.ok){
+        alert('Could not delete this startup.\n\nError: ' + result.error + '\n\nDocument ID: ' + id);
         return;
       }
       await docDelete(STARTUP_QA_COLLECTION, id); // best-effort cleanup of the paired Q&A doc
