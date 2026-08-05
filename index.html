@@ -743,17 +743,18 @@ function seedTeamCategory(type){
 }
 
 const PROBLEM_IMPACT_CATEGORY_SEED = {
-  // Weights in the source doc only sum to 46.66% for this category (should be 100%) — flagged.
-  id:'problem_impact', label:'2. Problem Clarity & Impact', maxPoints:15,
+  // Corrected per admin: actual category max is 10 points (the source doc said 15 in error),
+  // with Problem definition weighted 75% and Social/environmental impact weighted 25%.
+  id:'problem_impact', label:'2. Problem Clarity & Impact', maxPoints:10,
   subcriteria:[
-    {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:5, rawScale:true, anchors:[
+    {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:7.5, rawScale:true, anchors:[
       {raw:5, label:'Specific, urgent, well-evidenced, clear impact'},
       {raw:4, label:'Clear and relevant but lacks urgency/context'},
       {raw:3, label:'Understood but generic, lacks grounding'},
       {raw:2, label:'Vague or overly broad'},
       {raw:1, label:'Unclear or not articulated'}
     ]},
-    {key:'social_impact', label:'Social/environmental impact', maxPoints:2, rawScale:true, anchors:[
+    {key:'social_impact', label:'Social/environmental impact', maxPoints:2.5, rawScale:true, anchors:[
       {raw:5, label:'Aligned with 3+ SDGs, measurable impact'},
       {raw:4, label:'Aligned with 2 SDGs, measurable impact'},
       {raw:3, label:'Aligned with 1 SDG or general mention'},
