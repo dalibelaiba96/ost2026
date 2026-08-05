@@ -1077,7 +1077,9 @@ function mapApplicationRow(row){
     founderExperience: getVal('Person 1 Experience')
   };
 
-  // Parse every "Question N: <text>" column, combining amount + "(Currency)" pairs into one answer
+  // Parse every "Question N: <text>" column, combining amount + "(Currency)" pairs into one answer.
+  // Every question gets registered even if left blank, so evaluators can see what was actually
+  // asked, not just the ones the founder happened to answer.
   const raw = {};
   Object.keys(row).forEach(origKey => {
     const m = String(origKey).match(/^Question (\d+):\s*(.*)$/s);
@@ -1087,10 +1089,10 @@ function mapApplicationRow(row){
     const isCurrency = /\(Currency\)\s*$/.test(label);
     const baseLabel = label.replace(/\s*\(Currency\)\s*$/, '').trim();
     const val = row[origKey];
-    if(val === undefined || val === null || String(val).trim() === '') return;
+    const hasVal = !(val === undefined || val === null || String(val).trim() === '');
     if(!raw[num]) raw[num] = { label: baseLabel, value: '', currency: '' };
-    if(isCurrency) raw[num].currency = String(val).trim();
-    else { raw[num].value = String(val).trim(); raw[num].label = baseLabel; }
+    if(isCurrency){ if(hasVal) raw[num].currency = String(val).trim(); }
+    else { if(hasVal) raw[num].value = String(val).trim(); raw[num].label = baseLabel; }
   });
 
   const qa = {};
@@ -1099,7 +1101,7 @@ function mapApplicationRow(row){
     const item = raw[num];
     let answer = item.value;
     if(item.currency && answer) answer = answer + ' ' + item.currency;
-    if(answer) qa[num] = { question: item.label, answer };
+    qa[num] = { question: item.label, answer: answer || '' }; // keep even if blank
   });
 
   return { basics, qa };
@@ -1141,7 +1143,7 @@ function categoryQAHtml(catId, s){
       ${nums.map(n => `
         <div class="qa-item">
           <div class="qa-q"><span class="qa-q-badge">${n}</span><span>${esc(qa[n].question)}</span></div>
-          <div class="qa-a">${esc(qa[n].answer)}</div>
+          <div class="qa-a">${qa[n].answer ? esc(qa[n].answer) : '<span style="color:var(--muted);font-style:italic;">Not answered</span>'}</div>
         </div>
       `).join('')}
     </div>
