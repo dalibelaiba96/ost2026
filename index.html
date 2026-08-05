@@ -160,6 +160,7 @@
   .deck-modal-backdrop{position:fixed;inset:0;background:rgba(9,15,30,0.65);display:flex;align-items:center;justify-content:center;z-index:300;padding:24px;animation:fadeSlideIn var(--t-base) var(--ease);}
   .deck-modal{background:#fff;border-radius:var(--radius-lg);width:min(1000px, 100%);height:min(85vh, 900px);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-md);}
   .deck-modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:13.5px;background:var(--ost-off-white);}
+  .deck-modal iframe{flex:1;border:none;width:100%;background:#F5F5F5;}
 
 
 
@@ -1155,10 +1156,25 @@ async function loadAll(){
   S.evaluators = await sget(K.evaluators, []);
   S.scores = await docListAsMap(SCORES_COLLECTION);
   S.resources = await sget(K.resources, []);
+
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
     S.adminCodeExists = true;
+    S.view = 'admin'; // take them straight back to the dashboard, not the role picker
   }
+
+  const savedEvaluatorId = localStorage.getItem('dealroom_evaluator_id');
+  if(savedEvaluatorId){
+    const ev = S.evaluators.find(e=>e.id===savedEvaluatorId);
+    if(ev){
+      S.evaluator = ev;
+      S.view = 'evaluator';
+      S.evaluatorHome = true;
+    } else {
+      localStorage.removeItem('dealroom_evaluator_id'); // evaluator was removed, don't keep trying
+    }
+  }
+
   S.loading = false;
   render();
 }
@@ -2239,6 +2255,7 @@ function attachEvalLogin(){
     S.view = 'evaluator';
     S.currentStartupId = null;
     S.evaluatorHome = true;
+    localStorage.setItem('dealroom_evaluator_id', ev.id);
     render();
   };
 }
@@ -2401,6 +2418,7 @@ function renderEvaluatorHome(){
         <div class="eval-hero-eyebrow">Welcome back</div>
         <h1>${esc(ev.name)}</h1>
         <p>${assigned.length===0 ? "You don't have any startups assigned yet." : scoredCount===assigned.length ? "You're all caught up, every assigned startup is scored." : `${assigned.length - scoredCount} of ${assigned.length} still need your score.`}</p>
+        <button class="btn btn-primary" id="goToList" style="height:44px;padding:0 22px;margin-top:14px;"><i class="ph-fill ph-squares-four"></i> View my assigned startups${assigned.length?` (${assigned.length})`:''}</button>
       </div>
       ${assigned.length ? `
       <div class="eval-hero-ring">
@@ -2443,8 +2461,6 @@ function renderEvaluatorHome(){
         `).join('')}
       </div>
     </div>` : ''}
-
-    <button class="btn btn-primary" id="goToList" style="height:46px;padding:0 24px;"><i class="ph-fill ph-squares-four"></i> View my assigned startups${assigned.length?` (${assigned.length})`:''}</button>
   </div>
   <div class="toast" id="toast"></div>`;
 }
@@ -2497,7 +2513,7 @@ function renderEvaluatorList(){
 }
 
 function attachEvaluatorShell(){
-  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; render(); };
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; localStorage.removeItem('dealroom_evaluator_id'); render(); };
   const goToListBtn = document.getElementById('goToList');
   if(goToListBtn) goToListBtn.onclick = ()=>{ S.evaluatorHome = false; render(); };
   const backHomeBtn = document.getElementById('backHomeFromList');
@@ -2606,7 +2622,7 @@ function renderEvaluatorDetail(){
       </div>
       <div class="startup-header-actions">
         ${s.website ? `<a class="header-action-btn" href="${escAttr(s.website)}" target="_blank" rel="noopener"><i class="ph ph-globe"></i> Website</a>` : ''}
-        ${deckUrl ? `<a class="header-action-btn primary" href="${escAttr(deckUrl)}" target="_blank" rel="noopener"><i class="ph ph-file-text"></i> Open deck</a>`
+        ${deckUrl ? `<button class="header-action-btn primary" data-deck-preview="${escAttr(driveEmbedUrl(deckUrl))}"><i class="ph ph-file-text"></i> Preview deck</button>`
                    : (s.decks ? `<a class="header-action-btn primary" href="${escAttr((String(s.decks).match(/(https?:\/\/\S+)/)||[])[1]||'')}" target="_blank" rel="noopener"><i class="ph ph-download-simple"></i> Download deck</a>` : '')}
       </div>
     </div>`;
@@ -2741,7 +2757,7 @@ function attachEvaluatorDetailListeners(){
   const s = S.startups.find(x=>x.id===S.currentStartupId);
   const rubric = getRubric(s);
 
-  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; draftScore=null; render(); };
+  document.getElementById('logoutBtn').onclick = ()=>{ S.view='landing'; S.evaluator=null; S.currentStartupId=null; draftScore=null; localStorage.removeItem('dealroom_evaluator_id'); render(); };
   document.getElementById('backList').onclick = ()=>{ S.currentStartupId=null; draftScore=null; render(); };
 
   if(!rubric) return;
@@ -2856,9 +2872,19 @@ function asLink(value){
 // Prefer an admin-provided re-hosted deck link over the raw F6S link, but either way
 // this just opens/downloads normally, no in-app preview (F6S actively blocks automated
 // access with CAPTCHA challenges, so a reliable in-app preview isn't achievable).
+// Converts a Google Drive share link (any common format) into its embeddable /preview URL.
+// Falls back to the original URL if it doesn't look like a Drive link, so other hosts
+// (Dropbox, etc.) still get a best-effort attempt at direct embedding.
+function driveEmbedUrl(url){
+  if(!url) return null;
+  const fileIdMatch = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/) || url.match(/[?&]id=([^&]+)/);
+  if(fileIdMatch) return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+  return url;
+}
+
 function deckDisplayHtml(s){
   if(s.deckOverride){
-    return `<a href="${escAttr(s.deckOverride)}" target="_blank" rel="noopener">Open deck <i class="ph ph-arrow-square-out" style="font-size:12px;"></i></a>`;
+    return `<a href="${escAttr(s.deckOverride)}" data-deck-preview="${escAttr(driveEmbedUrl(s.deckOverride))}" rel="noopener">Preview deck <i class="ph ph-eye" style="font-size:12px;"></i></a>`;
   }
   if(s.decks){
     const m = String(s.decks).match(/(https?:\/\/\S+)/);
@@ -2868,6 +2894,33 @@ function deckDisplayHtml(s){
     return esc(s.decks);
   }
   return null;
+}
+
+// Opens the deck in an in-app preview modal. Google Drive's own /preview URLs are built
+// for exactly this (unlike F6S's file links, which actively block embedding).
+function openDeckPreview(url){
+  let root = document.getElementById('deckModalRoot');
+  if(!root){
+    root = document.createElement('div');
+    root.id = 'deckModalRoot';
+    document.body.appendChild(root);
+  }
+  root.innerHTML = `
+    <div class="deck-modal-backdrop" id="deckModalBackdrop">
+      <div class="deck-modal">
+        <div class="deck-modal-head">
+          <span><i class="ph ph-file-text"></i> Pitch deck preview</span>
+          <div class="row" style="gap:6px;">
+            <a class="icon-btn" href="${escAttr(url)}" target="_blank" rel="noopener"><i class="ph ph-arrow-square-out"></i> Open in new tab</a>
+            <button class="icon-btn" id="deckModalClose"><i class="ph ph-x"></i></button>
+          </div>
+        </div>
+        <iframe id="deckModalFrame" src="${escAttr(url)}" allow="autoplay"></iframe>
+      </div>
+    </div>`;
+  const close = ()=>{ root.innerHTML = ''; };
+  document.getElementById('deckModalClose').onclick = close;
+  document.getElementById('deckModalBackdrop').onclick = (e)=>{ if(e.target.id==='deckModalBackdrop') close(); };
 }
 
 // A centered modal for editing the deck override link — always visible regardless of
@@ -2887,10 +2940,10 @@ function openDeckLinkEditor(startup){
           <button class="icon-btn" id="deckEditClose"><i class="ph ph-x"></i></button>
         </div>
         <div style="padding:20px;">
-          <p class="su-meta" style="margin:0 0 14px;">F6S's own file links require an F6S login and won't preview for evaluators. Download the deck once and re-host it somewhere public (Google Drive with "anyone with the link", Dropbox, etc.), then paste that link here, it'll be used instead.</p>
+          <p class="su-meta" style="margin:0 0 14px;">Paste the Google Drive link to the pitch deck (set sharing to "anyone with the link can view"). It'll show a full in-app preview for evaluators instead of F6S's own file link, which requires an F6S login and can't be previewed.</p>
           ${startup.decks ? `<p class="su-meta" style="margin-bottom:14px;">Original F6S reference: ${esc(startup.decks)}</p>` : ''}
           <div class="field">
-            <label>Re-hosted deck link</label>
+            <label>Google Drive deck link</label>
             <input id="deckLinkInput" placeholder="https://drive.google.com/..." value="${escAttr(startup.deckOverride||'')}"/>
           </div>
           <div class="row">
@@ -2985,6 +3038,14 @@ function categoryEvidenceHtml(catId, s){
 
   return '';
 }
+
+/* ============ GLOBAL DECK PREVIEW (delegated, survives re-renders) ============ */
+document.addEventListener('click', (e)=>{
+  const deckEl = e.target.closest('[data-deck-preview]');
+  if(!deckEl) return;
+  e.preventDefault();
+  openDeckPreview(deckEl.dataset.deckPreview);
+});
 
 /* ============ GLOBAL HOME BUTTON (delegated, survives re-renders) ============ */
 document.addEventListener('click', (e)=>{
