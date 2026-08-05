@@ -676,66 +676,66 @@ function insertTractionCategory(categories, tractionCat){
 // category) — flagged to the admin; using the numbers as given until corrected.
 function seedTeamCategory(type){
   const credentials = type === 'deeptech' ? {
-    key:'team_credentials', label:'Team credentials', maxPoints:5, anchors:[
-      {points:5, label:'Provable expertise in the specific science/engineering claimed with a track record'},
-      {points:4, label:'Relevant scientific/technical experience, limited years or depth'},
-      {points:3, label:'Somewhat relevant, transferable skills'},
-      {points:2, label:'Limited scientific/technical experience or unrelated background'},
-      {points:1, label:'Minimal or no relevant scientific/technical credentials'}
+    key:'team_credentials', label:'Team credentials', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Provable expertise in the specific science/engineering claimed with a track record'},
+      {raw:4, label:'Relevant scientific/technical experience, limited years or depth'},
+      {raw:3, label:'Somewhat relevant, transferable skills'},
+      {raw:2, label:'Limited scientific/technical experience or unrelated background'},
+      {raw:1, label:'Minimal or no relevant scientific/technical credentials'}
     ]
   } : {
-    key:'team_credentials', label:'Team credentials', maxPoints:5, anchors:[
-      {points:5, label:'Strong, relevant experience; proven track record'},
-      {points:4, label:'Relevant experience, limited years or depth'},
-      {points:3, label:'Somewhat relevant, transferable skills'},
-      {points:2, label:'Limited experience or unrelated background'},
-      {points:1, label:'Minimal or no relevant credentials'}
+    key:'team_credentials', label:'Team credentials', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Strong, relevant experience; proven track record'},
+      {raw:4, label:'Relevant experience, limited years or depth'},
+      {raw:3, label:'Somewhat relevant, transferable skills'},
+      {raw:2, label:'Limited experience or unrelated background'},
+      {raw:1, label:'Minimal or no relevant credentials'}
     ]
   };
   return {
     id:'team', label:'1. Team Strength & Inclusion', maxPoints:25,
     subcriteria:[
-      {key:'founder_commitment', label:'Full-time founder commitment', maxPoints:5, anchors:[
-        {points:5, label:'All co-founders are full-time'},
-        {points:4, label:'Most co-founders full-time, including lead'},
-        {points:3, label:'Only the lead founder is full-time'},
-        {points:2, label:'Founders are part-time but actively committed'},
-        {points:1, label:'All founders part-time / no full-time commitment'}
+      {key:'founder_commitment', label:'Full-time founder commitment', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'All co-founders are full-time'},
+        {raw:4, label:'Most co-founders full-time, including lead'},
+        {raw:3, label:'Only the lead founder is full-time'},
+        {raw:2, label:'Founders are part-time but actively committed'},
+        {raw:1, label:'All founders part-time / no full-time commitment'}
       ]},
-      {key:'team_size', label:'Team size & capacity', maxPoints:4, anchors:[
-        {points:4, label:'Team of 5 or more'},
-        {points:3.2, label:'Team of 3-4'},
-        {points:2.4, label:'Team of 2'},
-        {points:1.6, label:'Solo founder'},
-        {points:0.8, label:'No operational team'}
+      {key:'team_size', label:'Team size & capacity', maxPoints:4, rawScale:true, anchors:[
+        {raw:5, label:'Team of 5 or more'},
+        {raw:4, label:'Team of 3-4'},
+        {raw:3, label:'Team of 2'},
+        {raw:2, label:'Solo founder'},
+        {raw:1, label:'No operational team'}
       ]},
-      {key:'female_team', label:'Female team members', maxPoints:2, anchors:[
-        {points:2, label:'\u226550% of team are women'},
-        {points:1.6, label:'30-49% of team are women'},
-        {points:1.2, label:'At least 1 woman on the team'},
-        {points:0.8, label:'Women present only in minor/informal roles'},
-        {points:0.4, label:'No female team members'}
+      {key:'female_team', label:'Female team members', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'\u226550% of team are women'},
+        {raw:4, label:'30-49% of team are women'},
+        {raw:3, label:'At least 1 woman on the team'},
+        {raw:2, label:'Women present only in minor/informal roles'},
+        {raw:1, label:'No female team members'}
       ]},
-      {key:'women_leadership', label:'Women in leadership roles', maxPoints:2, anchors:[
-        {points:2, label:'Multiple women in founder/executive (CXO) roles'},
-        {points:1.6, label:'At least one woman in a founder or executive role'},
-        {points:1.2, label:'Women present in leadership-adjacent roles'},
-        {points:0.8, label:'Women present but not in leadership'},
-        {points:0.4, label:'No women in leadership'}
+      {key:'women_leadership', label:'Women in leadership roles', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'Multiple women in founder/executive (CXO) roles'},
+        {raw:4, label:'At least one woman in a founder or executive role'},
+        {raw:3, label:'Women present in leadership-adjacent roles'},
+        {raw:2, label:'Women present but not in leadership'},
+        {raw:1, label:'No women in leadership'}
       ]},
-      {key:'youth', label:'Youth representation (<35)', maxPoints:2, anchors:[
-        {points:2, label:'\u226550% of team is under 35'},
-        {points:1.6, label:'30-49% of team is under 35'},
-        {points:1.2, label:'Some team members under 35, but <30%'},
-        {points:0.8, label:'One team member under 35'},
-        {points:0.4, label:'No team members under 35'}
+      {key:'youth', label:'Youth representation (<35)', maxPoints:2, rawScale:true, anchors:[
+        {raw:5, label:'\u226550% of team is under 35'},
+        {raw:4, label:'30-49% of team is under 35'},
+        {raw:3, label:'Some team members under 35, but <30%'},
+        {raw:2, label:'One team member under 35'},
+        {raw:1, label:'No team members under 35'}
       ]},
-      {key:'team_complementarity', label:'Team complementarity (via NLP)', maxPoints:5, anchors:[
-        {points:5, label:'Clear, well-balanced, complementary roles'},
-        {points:4, label:'Mostly complementary, minor overlaps/gaps'},
-        {points:3, label:'Some differentiation, but unclear/overlapping'},
-        {points:2, label:'Minimal complementarity, unclear responsibilities'},
-        {points:1, label:'Similar profiles / no info on roles'}
+      {key:'team_complementarity', label:'Team complementarity (via NLP)', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'Clear, well-balanced, complementary roles'},
+        {raw:4, label:'Mostly complementary, minor overlaps/gaps'},
+        {raw:3, label:'Some differentiation, but unclear/overlapping'},
+        {raw:2, label:'Minimal complementarity, unclear responsibilities'},
+        {raw:1, label:'Similar profiles / no info on roles'}
       ]},
       credentials
     ]
@@ -746,19 +746,19 @@ const PROBLEM_IMPACT_CATEGORY_SEED = {
   // Weights in the source doc only sum to 46.66% for this category (should be 100%) — flagged.
   id:'problem_impact', label:'2. Problem Clarity & Impact', maxPoints:15,
   subcriteria:[
-    {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:5, anchors:[
-      {points:5, label:'Specific, urgent, well-evidenced, clear impact'},
-      {points:4, label:'Clear and relevant but lacks urgency/context'},
-      {points:3, label:'Understood but generic, lacks grounding'},
-      {points:2, label:'Vague or overly broad'},
-      {points:1, label:'Unclear or not articulated'}
+    {key:'problem_definition', label:'Problem definition (via NLP)', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Specific, urgent, well-evidenced, clear impact'},
+      {raw:4, label:'Clear and relevant but lacks urgency/context'},
+      {raw:3, label:'Understood but generic, lacks grounding'},
+      {raw:2, label:'Vague or overly broad'},
+      {raw:1, label:'Unclear or not articulated'}
     ]},
-    {key:'social_impact', label:'Social/environmental impact', maxPoints:2, anchors:[
-      {points:2, label:'Aligned with 3+ SDGs, measurable impact'},
-      {points:1.6, label:'Aligned with 2 SDGs, measurable impact'},
-      {points:1.2, label:'Aligned with 1 SDG or general mention'},
-      {points:0.8, label:'Vague or indirect mention of impact'},
-      {points:0.4, label:'No clear impact or not mentioned'}
+    {key:'social_impact', label:'Social/environmental impact', maxPoints:2, rawScale:true, anchors:[
+      {raw:5, label:'Aligned with 3+ SDGs, measurable impact'},
+      {raw:4, label:'Aligned with 2 SDGs, measurable impact'},
+      {raw:3, label:'Aligned with 1 SDG or general mention'},
+      {raw:2, label:'Vague or indirect mention of impact'},
+      {raw:1, label:'No clear impact or not mentioned'}
     ]}
   ]
 };
@@ -768,55 +768,55 @@ function seedSolutionTechCategory(type){
   return {
     id:'solution_tech', label:'3. Solution & Technology', maxPoints:25,
     subcriteria:[
-      {key:'tech_differentiation', label:'Technology differentiation', maxPoints:6.2, anchors: isDeep ? [
-        {points:6.2, label:'Differentiation grounded in proprietary science/engineering (novel method, unique dataset, protected process) with credible defensibility'},
-        {points:5, label:'Real technical differentiation, defensibility not yet secured'},
-        {points:3.7, label:'Some technical distinction, but similar approaches exist elsewhere'},
-        {points:2.5, label:'Minimal technical differentiation from known approaches'},
-        {points:1.2, label:'No technical differentiation identified'},
-        {points:0, label:'Not answered / insufficient information in the application to assess'}
+      {key:'tech_differentiation', label:'Technology differentiation', maxPoints:6.2, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'Differentiation grounded in proprietary science/engineering (novel method, unique dataset, protected process) with credible defensibility'},
+        {raw:4, label:'Real technical differentiation, defensibility not yet secured'},
+        {raw:3, label:'Some technical distinction, but similar approaches exist elsewhere'},
+        {raw:2, label:'Minimal technical differentiation from known approaches'},
+        {raw:1, label:'No technical differentiation identified'},
+        {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ] : [
-        {points:6.2, label:'Clear, defensible product/feature differentiation vs. alternatives (proprietary data, workflow, integration depth)'},
-        {points:5, label:'Meaningful differentiation, some replicable elements'},
-        {points:3.7, label:'Some differentiation, largely feature-based and copyable'},
-        {points:2.5, label:'Minimal differentiation from existing tools'},
-        {points:1.2, label:'No differentiation identified'},
-        {points:0, label:'Not answered / insufficient information in the application to assess'}
+        {raw:5, label:'Clear, defensible product/feature differentiation vs. alternatives (proprietary data, workflow, integration depth)'},
+        {raw:4, label:'Meaningful differentiation, some replicable elements'},
+        {raw:3, label:'Some differentiation, largely feature-based and copyable'},
+        {raw:2, label:'Minimal differentiation from existing tools'},
+        {raw:1, label:'No differentiation identified'},
+        {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ]},
-      {key:'tech_readiness', label:'Technology readiness (TRL)', maxPoints:5, anchors: isDeep ? [
-        {points:5, label:'TRL 7-9: functional prototype, deployment-ready'},
-        {points:4, label:'TRL 6: prototype in relevant environment'},
-        {points:3, label:'TRL 5: components validated in relevant environment'},
-        {points:2, label:'TRL 4: lab validation of integrated system'},
-        {points:1, label:'TRL 1-3: concept or proof-of-concept'}
+      {key:'tech_readiness', label:'Technology readiness (TRL)', maxPoints:5, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'TRL 7-9: functional prototype, deployment-ready'},
+        {raw:4, label:'TRL 6: prototype in relevant environment'},
+        {raw:3, label:'TRL 5: components validated in relevant environment'},
+        {raw:2, label:'TRL 4: lab validation of integrated system'},
+        {raw:1, label:'TRL 1-3: concept or proof-of-concept'}
       ] : [
-        {points:5, label:'Live product with paying users at scale, proven retention'},
-        {points:4, label:'Live product with early paying/active users'},
-        {points:3, label:'Public beta / MVP live, pre-revenue or early users'},
-        {points:2, label:'Working prototype, not yet public'},
-        {points:1, label:'Concept, mockup, or idea stage only'},
-        {points:0, label:'Not answered / insufficient information in the application to assess'}
+        {raw:5, label:'Live product with paying users at scale, proven retention'},
+        {raw:4, label:'Live product with early paying/active users'},
+        {raw:3, label:'Public beta / MVP live, pre-revenue or early users'},
+        {raw:2, label:'Working prototype, not yet public'},
+        {raw:1, label:'Concept, mockup, or idea stage only'},
+        {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ]},
-      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6.2, anchors:[
-        {points:6.2, label:'Clear, compelling, specific; strong reason to choose'},
-        {points:5, label:'Clear and relevant, less differentiated'},
-        {points:3.7, label:'Present but somewhat generic or unclear'},
-        {points:2.5, label:'Weak, doesn\u2019t address pain points'},
-        {points:1.2, label:'Vague, absent, or non-differentiated'}
+      {key:'uvp', label:'Unique Value Proposition (via NLP)', maxPoints:6.2, rawScale:true, anchors:[
+        {raw:5, label:'Clear, compelling, specific; strong reason to choose'},
+        {raw:4, label:'Clear and relevant, less differentiated'},
+        {raw:3, label:'Present but somewhat generic or unclear'},
+        {raw:2, label:'Weak, doesn\u2019t address pain points'},
+        {raw:1, label:'Vague, absent, or non-differentiated'}
       ]},
-      {key:'legal_ip', label:'Legal & IP', maxPoints:2.5, anchors:[
-        {points:2.5, label:'Incorporated + clear IP ownership/protection'},
-        {points:2, label:'Incorporated + informal IP protections/filings'},
-        {points:1.5, label:'Legally registered, no IP strategy, still exploring'},
-        {points:1, label:'Incorporation in progress / No IP strategy'},
-        {points:0.5, label:'Not incorporated / no information'}
+      {key:'legal_ip', label:'Legal & IP', maxPoints:2.5, rawScale:true, anchors:[
+        {raw:5, label:'Incorporated + clear IP ownership/protection'},
+        {raw:4, label:'Incorporated + informal IP protections/filings'},
+        {raw:3, label:'Legally registered, no IP strategy, still exploring'},
+        {raw:2, label:'Incorporation in progress / No IP strategy'},
+        {raw:1, label:'Not incorporated / no information'}
       ]},
-      {key:'scalability', label:'Solution scalability (via NLP)', maxPoints:5, anchors:[
-        {points:5, label:'High scalability, strong evidence of adaptability/replication'},
-        {points:4, label:'High scalability, early signs of adaptability'},
-        {points:3, label:'Scalable, logical path to broader markets'},
-        {points:2, label:'Limited; heavily localized/customized'},
-        {points:1, label:'No scalable path identified'}
+      {key:'scalability', label:'Solution scalability (via NLP)', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'High scalability, strong evidence of adaptability/replication'},
+        {raw:4, label:'High scalability, early signs of adaptability'},
+        {raw:3, label:'Scalable, logical path to broader markets'},
+        {raw:2, label:'Limited; heavily localized/customized'},
+        {raw:1, label:'No scalable path identified'}
       ]}
     ]
   };
@@ -827,47 +827,47 @@ function seedTractionMaturityCategory(type){
   return {
     id:'traction_maturity', label:'4. Traction & Business Maturity', maxPoints:20,
     subcriteria:[
-      {key:'competitive_positioning', label:'Competitive positioning (via NLP)', maxPoints:6, anchors:[
-        {points:6, label:'Clear competitor understanding, compelling differentiation'},
-        {points:4.8, label:'Competitors identified, some differentiation'},
-        {points:3.6, label:'General awareness, vague/weak differentiation'},
-        {points:2.4, label:'Competitors mentioned, no clear differentiation'},
-        {points:1.2, label:'No competitors identified'}
+      {key:'competitive_positioning', label:'Competitive positioning (via NLP)', maxPoints:6, rawScale:true, anchors:[
+        {raw:5, label:'Clear competitor understanding, compelling differentiation'},
+        {raw:4, label:'Competitors identified, some differentiation'},
+        {raw:3, label:'General awareness, vague/weak differentiation'},
+        {raw:2, label:'Competitors mentioned, no clear differentiation'},
+        {raw:1, label:'No competitors identified'}
       ]},
-      {key:'customer_segments', label:'Customer segments', maxPoints:5, anchors:[
-        {points:5, label:'Clearly defined segments, strong evidence'},
-        {points:4, label:'Defined segments, some evidence'},
-        {points:3, label:'Segments outlined but vague/untested'},
-        {points:2, label:'Poorly defined or generic segments'},
-        {points:1, label:'No information on target customers'}
+      {key:'customer_segments', label:'Customer segments', maxPoints:5, rawScale:true, anchors:[
+        {raw:5, label:'Clearly defined segments, strong evidence'},
+        {raw:4, label:'Defined segments, some evidence'},
+        {raw:3, label:'Segments outlined but vague/untested'},
+        {raw:2, label:'Poorly defined or generic segments'},
+        {raw:1, label:'No information on target customers'}
       ]},
-      {key:'revenue_users', label:'Revenue or paying users', maxPoints:5, anchors: isDeep ? [
-        {points:5, label:'>$10,000/month revenue, OR multiple paid pilots/contracts'},
-        {points:4, label:'$1,000-10,000/month revenue, OR signed pilot(s)/LOIs with revenue potential'},
-        {points:3, label:'Grant-funded validation or unpaid pilot(s) in progress, no revenue yet'},
-        {points:2, label:'Pilot conversations underway, nothing signed'},
-        {points:1, label:'Pre-revenue, no pilots, no external validation'},
-        {points:0, label:'Not answered / insufficient information in the application to assess'}
+      {key:'revenue_users', label:'Revenue or paying users', maxPoints:5, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'>$10,000/month revenue, OR multiple paid pilots/contracts'},
+        {raw:4, label:'$1,000-10,000/month revenue, OR signed pilot(s)/LOIs with revenue potential'},
+        {raw:3, label:'Grant-funded validation or unpaid pilot(s) in progress, no revenue yet'},
+        {raw:2, label:'Pilot conversations underway, nothing signed'},
+        {raw:1, label:'Pre-revenue, no pilots, no external validation'},
+        {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ] : [
-        {points:5, label:'>$10,000/month or strong paying user base'},
-        {points:4, label:'$5,000-10,000/month or growing paying users'},
-        {points:3, label:'$1,000-5,000/month or early paying users'},
-        {points:2, label:'<$1,000/month or inconsistent pilot revenue'},
-        {points:1, label:'Pre-revenue or pre-product'}
+        {raw:5, label:'>$10,000/month or strong paying user base'},
+        {raw:4, label:'$5,000-10,000/month or growing paying users'},
+        {raw:3, label:'$1,000-5,000/month or early paying users'},
+        {raw:2, label:'<$1,000/month or inconsistent pilot revenue'},
+        {raw:1, label:'Pre-revenue or pre-product'}
       ]},
-      {key:'growth_rate', label:'Growth rate (monthly)', maxPoints:4, anchors: isDeep ? [
-        {points:4, label:'Consistent progress against technical/regulatory milestones (e.g. TRL advancement, pilot expansion) over 3+ months'},
-        {points:3.2, label:'Regular milestone progress, some delays'},
-        {points:2.4, label:'Some milestone progress, inconsistent pace'},
-        {points:1.6, label:'Stalled or unclear progress against plan'},
-        {points:0.8, label:'No measurable progress, or too early to assess'},
-        {points:0, label:'Not answered / insufficient information in the application to assess'}
+      {key:'growth_rate', label:'Growth rate (monthly)', maxPoints:4, rawScale:true, anchors: isDeep ? [
+        {raw:5, label:'Consistent progress against technical/regulatory milestones (e.g. TRL advancement, pilot expansion) over 3+ months'},
+        {raw:4, label:'Regular milestone progress, some delays'},
+        {raw:3, label:'Some milestone progress, inconsistent pace'},
+        {raw:2, label:'Stalled or unclear progress against plan'},
+        {raw:1, label:'No measurable progress, or too early to assess'},
+        {raw:0, label:'Not answered / insufficient information in the application to assess'}
       ] : [
-        {points:4, label:'Sustained >15% monthly growth (3+ months)'},
-        {points:3.2, label:'Consistent 5-15% monthly growth'},
-        {points:2.4, label:'Some growth (<5%) or inconsistent'},
-        {points:1.6, label:'Flat or unclear growth metrics'},
-        {points:0.8, label:'Declining, none, or pre-launch'}
+        {raw:5, label:'Sustained >15% monthly growth (3+ months)'},
+        {raw:4, label:'Consistent 5-15% monthly growth'},
+        {raw:3, label:'Some growth (<5%) or inconsistent'},
+        {raw:2, label:'Flat or unclear growth metrics'},
+        {raw:1, label:'Declining, none, or pre-launch'}
       ]}
     ]
   };
@@ -876,47 +876,47 @@ function seedTractionMaturityCategory(type){
 const FUNDRAISING_CATEGORY_SEED = {
   id:'fundraising', label:'5. Fundraising & Financial Readiness', maxPoints:30,
   subcriteria:[
-    {key:'amount_raised', label:'Amount raised to date', maxPoints:6, anchors:[
-      {points:6, label:'>$100K from credible external sources'},
-      {points:4.8, label:'$50K-100K, some source diversity'},
-      {points:3.6, label:'$10K-50K from external sources'},
-      {points:2.4, label:'<$10K externally, or mostly informal/F&F'},
-      {points:1.2, label:'No funding raised'}
+    {key:'amount_raised', label:'Amount raised to date', maxPoints:6, rawScale:true, anchors:[
+      {raw:5, label:'>$100K from credible external sources'},
+      {raw:4, label:'$50K-100K, some source diversity'},
+      {raw:3, label:'$10K-50K from external sources'},
+      {raw:2, label:'<$10K externally, or mostly informal/F&F'},
+      {raw:1, label:'No funding raised'}
     ]},
-    {key:'funding_diversity', label:'Funding source diversity', maxPoints:6, anchors:[
-      {points:6, label:'3+ distinct types of capital raised'},
-      {points:4.8, label:'Two distinct external sources'},
-      {points:3.6, label:'One main external source'},
-      {points:2.4, label:'Mostly informal (family/friends) or founder-funded'},
-      {points:1.2, label:'No capital raised'}
+    {key:'funding_diversity', label:'Funding source diversity', maxPoints:6, rawScale:true, anchors:[
+      {raw:5, label:'3+ distinct types of capital raised'},
+      {raw:4, label:'Two distinct external sources'},
+      {raw:3, label:'One main external source'},
+      {raw:2, label:'Mostly informal (family/friends) or founder-funded'},
+      {raw:1, label:'No capital raised'}
     ]},
-    {key:'fundraising_ask', label:'Clarity on fundraising ask', maxPoints:6, anchors:[
-      {points:6, label:'Clear amount, funding type, use of funds, stage'},
-      {points:4.8, label:'Clear amount and stage, partial use of funds'},
-      {points:3.6, label:'Amount stated, unclear stage or use'},
-      {points:2.4, label:'Vague/inconsistent, or only "raising" mentioned'},
-      {points:1.2, label:'No fundraising information provided'}
+    {key:'fundraising_ask', label:'Clarity on fundraising ask', maxPoints:6, rawScale:true, anchors:[
+      {raw:5, label:'Clear amount, funding type, use of funds, stage'},
+      {raw:4, label:'Clear amount and stage, partial use of funds'},
+      {raw:3, label:'Amount stated, unclear stage or use'},
+      {raw:2, label:'Vague/inconsistent, or only "raising" mentioned'},
+      {raw:1, label:'No fundraising information provided'}
     ]},
-    {key:'valuation_awareness', label:'Valuation & awareness', maxPoints:3.6, anchors:[
-      {points:3.6, label:'Clearly stated, appropriate for stage, well-supported'},
-      {points:2.9, label:'Stated, reasonable but justification unclear'},
-      {points:2.2, label:'Stated, but possibly unrealistic/poorly justified'},
-      {points:1.4, label:'Not stated or inconsistent with stage'},
-      {points:0.7, label:'No awareness of valuation / blank'}
+    {key:'valuation_awareness', label:'Valuation & awareness', maxPoints:3.6, rawScale:true, anchors:[
+      {raw:5, label:'Clearly stated, appropriate for stage, well-supported'},
+      {raw:4, label:'Stated, reasonable but justification unclear'},
+      {raw:3, label:'Stated, but possibly unrealistic/poorly justified'},
+      {raw:2, label:'Not stated or inconsistent with stage'},
+      {raw:1, label:'No awareness of valuation / blank'}
     ]},
-    {key:'cap_table_health', label:'Cap Table Health', maxPoints:3.6, anchors:[
-      {points:3.6, label:'Clean, balanced, no red flags'},
-      {points:2.9, label:'Generally healthy, minor concerns'},
-      {points:2.2, label:'Some concerns (over-dilution, dead equity)'},
-      {points:1.4, label:'Major risks (too many small holders, unclear ownership)'},
-      {points:0.7, label:'No cap table provided / unclear structure'}
+    {key:'cap_table_health', label:'Cap Table Health', maxPoints:3.6, rawScale:true, anchors:[
+      {raw:5, label:'Clean, balanced, no red flags'},
+      {raw:4, label:'Generally healthy, minor concerns'},
+      {raw:3, label:'Some concerns (over-dilution, dead equity)'},
+      {raw:2, label:'Major risks (too many small holders, unclear ownership)'},
+      {raw:1, label:'No cap table provided / unclear structure'}
     ]},
-    {key:'negotiation_activity', label:'Negotiation activity', maxPoints:4.8, anchors:[
-      {points:4.8, label:'Currently in active term sheet discussions or due diligence'},
-      {points:3.8, label:'Multiple investor conversations or informal commitments in progress'},
-      {points:2.9, label:'Some outreach underway, but still early stage'},
-      {points:1.9, label:'No current investor engagement, but fundraising intent stated'},
-      {points:1, label:'Not currently fundraising / no activity mentioned'}
+    {key:'negotiation_activity', label:'Negotiation activity', maxPoints:4.8, rawScale:true, anchors:[
+      {raw:5, label:'Currently in active term sheet discussions or due diligence'},
+      {raw:4, label:'Multiple investor conversations or informal commitments in progress'},
+      {raw:3, label:'Some outreach underway, but still early stage'},
+      {raw:2, label:'No current investor engagement, but fundraising intent stated'},
+      {raw:1, label:'Not currently fundraising / no activity mentioned'}
     ]}
   ]
 };
@@ -924,19 +924,19 @@ const FUNDRAISING_CATEGORY_SEED = {
 const MARKET_FIT_CATEGORY_SEED = {
   id:'market_fit', label:'6. Market Fit & Expansion Strategy', maxPoints:10,
   subcriteria:[
-    {key:'gtm_strategy', label:'Go-to-market strategy', maxPoints:5, anchors:[
-      {points:5, label:'Clear, phased GTM plan tailored to target segment(s); includes specific channels and milestones'},
-      {points:4, label:'GTM plan exists and makes sense, but lacks some structure or detail'},
-      {points:3, label:'General direction identified, but plan is vague or untested'},
-      {points:2, label:'Basic or generic GTM strategy; lacks market understanding'},
-      {points:1, label:'Minimal to no mention of GTM'}
+    {key:'gtm_strategy', label:'Go-to-market strategy', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Clear, phased GTM plan tailored to target segment(s); includes specific channels and milestones'},
+      {raw:4, label:'GTM plan exists and makes sense, but lacks some structure or detail'},
+      {raw:3, label:'General direction identified, but plan is vague or untested'},
+      {raw:2, label:'Basic or generic GTM strategy; lacks market understanding'},
+      {raw:1, label:'Minimal to no mention of GTM'}
     ]},
-    {key:'expansion_plan', label:'Planned expansion & home country linkage', maxPoints:5, anchors:[
-      {points:5, label:'Strong link between home market advantage and a well-defined, realistic international expansion plan'},
-      {points:4, label:'Clear expansion ambition with logical ties to the home market'},
-      {points:3, label:'Expansion mentioned but loosely connected to current operations'},
-      {points:2, label:'Expansion vision exists but lacks credibility or alignment with current stage'},
-      {points:1, label:'No expansion plan, purely local model'}
+    {key:'expansion_plan', label:'Planned expansion & home country linkage', maxPoints:5, rawScale:true, anchors:[
+      {raw:5, label:'Strong link between home market advantage and a well-defined, realistic international expansion plan'},
+      {raw:4, label:'Clear expansion ambition with logical ties to the home market'},
+      {raw:3, label:'Expansion mentioned but loosely connected to current operations'},
+      {raw:2, label:'Expansion vision exists but lacks credibility or alignment with current stage'},
+      {raw:1, label:'No expansion plan, purely local model'}
     ]}
   ]
 };
@@ -975,6 +975,16 @@ function getRubric(startup){
 }
 function rubricMaxTotal(rubric){
   return rubric.reduce((sum,cat)=>sum+cat.maxPoints, 0);
+}
+
+// Converts a selected value into its actual point contribution. Seed-stage sub-criteria
+// use a clean 1-5 rating scale (rawScale:true) that gets weighted invisibly — the evaluator
+// only ever sees "rate this 1-5", never the underlying weight. Pre-Seed sub-criteria already
+// store the direct point value per anchor, so no conversion is needed there.
+function subPointsFor(sub, selected){
+  if(selected === undefined || selected === null) return undefined;
+  if(sub.rawScale) return (selected / 5) * sub.maxPoints;
+  return selected;
 }
 
 // Best-effort auto-detect of Deeptech vs Tech-enabled from F6S text fields; admin can always override.
@@ -2184,12 +2194,16 @@ function avgOf(nums){ if(!nums.length) return null; return (nums.reduce((a,b)=>a
 
 function scoreRowTotal(row, rubric){
   if(!row.subScores) return null;
-  const vals = rubric.flatMap(cat=>cat.subcriteria.map(sub=>row.subScores[sub.key])).filter(v=>typeof v==='number');
+  const vals = rubric.flatMap(cat=>cat.subcriteria)
+    .map(sub => subPointsFor(sub, row.subScores[sub.key]))
+    .filter(v=>typeof v==='number');
   if(!vals.length) return null;
   return vals.reduce((a,b)=>a+b,0);
 }
 function categoryTotal(row, cat){
-  const vals = cat.subcriteria.map(sub=>row.subScores ? row.subScores[sub.key] : undefined).filter(v=>typeof v==='number');
+  const vals = cat.subcriteria
+    .map(sub => subPointsFor(sub, row.subScores ? row.subScores[sub.key] : undefined))
+    .filter(v=>typeof v==='number');
   if(!vals.length) return null;
   return vals.reduce((a,b)=>a+b,0);
 }
@@ -2603,7 +2617,7 @@ function ensureDraftScore(ev, s){
 }
 
 function categorySubtotal(cat, draft){
-  return cat.subcriteria.reduce((sum, sub) => sum + (draft.subScores[sub.key] ?? 0), 0);
+  return cat.subcriteria.reduce((sum, sub) => sum + (subPointsFor(sub, draft.subScores[sub.key]) ?? 0), 0);
 }
 
 async function persistDraft(ev, s, draft){
@@ -2753,8 +2767,10 @@ function renderEvaluatorDetail(){
           ${currentCat.subcriteria.map(sub => {
             const scored = draft.subScores[sub.key] !== undefined;
             const isOpen = sub.key === expandedSub;
-            const selectedAnchor = scored ? sub.anchors.find(a=>a.points===draft.subScores[sub.key]) : null;
-            const previewText = scored ? (selectedAnchor ? `${selectedAnchor.points} — ${selectedAnchor.label}` : `${draft.subScores[sub.key]} pts`) : 'Not yet scored';
+            const anchorValue = (a) => sub.rawScale ? a.raw : a.points;
+            const selectedAnchor = scored ? sub.anchors.find(a=>anchorValue(a)===draft.subScores[sub.key]) : null;
+            const previewText = scored ? (selectedAnchor ? `${anchorValue(selectedAnchor)} — ${selectedAnchor.label}` : `${draft.subScores[sub.key]}`) : 'Not yet scored';
+            const badgeMax = sub.rawScale ? 5 : sub.maxPoints;
             return `
             <div class="crit-row" data-subkey="${sub.key}">
               <div class="crit-header ${isOpen?'open':''} ${scored?'scored':''}" data-toggle-sub="${sub.key}">
@@ -2762,14 +2778,14 @@ function renderEvaluatorDetail(){
                   <span class="crit-label">${esc(sub.label)}${scored?' <span class=\"crit-check\">&check;</span>':''}</span>
                   <span class="crit-preview">${esc(previewText)}</span>
                 </div>
-                <span class="crit-value" data-subtotal-for="${sub.key}">${draft.subScores[sub.key] ?? '—'}/${sub.maxPoints}</span>
+                <span class="crit-value" data-subtotal-for="${sub.key}">${draft.subScores[sub.key] ?? '—'}/${badgeMax}</span>
                 <span class="crit-chevron">${isOpen?'\u25be':'\u25b8'}</span>
               </div>
               ${isOpen ? `
               <div class="anchor-group" data-subkey-group="${sub.key}">
                 ${sub.anchors.map(a => `
-                  <button type="button" class="anchor-btn ${draft.subScores[sub.key]===a.points?'selected':''}" data-sub="${sub.key}" data-points="${a.points}">
-                    <span class="anchor-points">${a.points}</span><span class="anchor-label">${esc(a.label)}</span>
+                  <button type="button" class="anchor-btn ${draft.subScores[sub.key]===anchorValue(a)?'selected':''}" data-sub="${sub.key}" data-points="${anchorValue(a)}">
+                    <span class="anchor-points">${anchorValue(a)}</span><span class="anchor-label">${esc(a.label)}</span>
                   </button>`).join('')}
               </div>` : ''}
             </div>`;
