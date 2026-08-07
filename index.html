@@ -370,8 +370,12 @@ const firebaseConfig = {
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
-const COLLECTION = 'dealroom';           // small shared settings: evaluators, admin code, resources
+const COLLECTION = 'dealroom';           // small shared settings: admin code, resources (evaluators moved out below)
 const STARTUPS_COLLECTION = 'dealroom_startups'; // one Firestore document PER startup (avoids the 1MB/doc limit)
+const EVALUATORS_COLLECTION = 'dealroom_evaluators'; // one Firestore document PER evaluator — previously all evaluators
+                                                       // were saved as a single shared array, so two people editing at
+                                                       // the same time (e.g. adding an evaluator vs. assigning startups)
+                                                       // could silently overwrite each other's changes with a stale copy.
 const SCORES_COLLECTION = 'dealroom_scores';     // one Firestore document PER evaluator+startup score
 const STARTUP_QA_COLLECTION = 'dealroom_startup_qa'; // the ~85-question application data, ~86% of a startup's size —
                                                        // stored separately and fetched only when a startup is actually opened,
@@ -403,7 +407,8 @@ const K = {
   criteria: 'criteria',
   adminCode: 'admin_code',
   resources: 'resources',
-  migrationDone: 'migration_done'
+  migrationDone: 'migration_done',
+  evaluatorsMigrationDone: 'evaluators_migration_done'
 };
 
 async function sget(key, fallback){
@@ -467,24 +472,41 @@ async function migrateToPerDocumentStorageIfNeeded(){
     // would silently resurrect old legacy data (including startups you'd already deleted) on
     // the very next load.
     const alreadyMigrated = await sget(K.migrationDone, false);
-    if(alreadyMigrated) return;
+    if(!alreadyMigrated){
+      const existingStartups = await docListAsMap(STARTUPS_COLLECTION);
+      if(Object.keys(existingStartups).length === 0){
+        const oldStartups = await sget(K.startups, []);
+        if(oldStartups.length){
+          await Promise.all(oldStartups.map(su => saveStartupSummary(su)));
+        }
+      }
+      const existingScores = await docListAsMap(SCORES_COLLECTION);
+      if(Object.keys(existingScores).length === 0){
+        const oldScores = await sget(K.scores, {});
+        const keys = Object.keys(oldScores);
+        if(keys.length){
+          await Promise.all(keys.map(k => docSave(SCORES_COLLECTION, k, oldScores[k])));
+        }
+      }
+      await sset(K.migrationDone, true);
+    }
 
-    const existingStartups = await docListAsMap(STARTUPS_COLLECTION);
-    if(Object.keys(existingStartups).length === 0){
-      const oldStartups = await sget(K.startups, []);
-      if(oldStartups.length){
-        await Promise.all(oldStartups.map(su => saveStartupSummary(su)));
+    // Separate one-time migration for evaluators (added after the main migration above had
+    // already run for this platform, so it needs its own flag). Evaluators used to be saved
+    // as a single shared array — this moves them to one document per evaluator, fixing a real
+    // data-loss bug where two people editing evaluators around the same time could silently
+    // overwrite each other's changes with a stale copy.
+    const evaluatorsMigrated = await sget(K.evaluatorsMigrationDone, false);
+    if(!evaluatorsMigrated){
+      const existingEvaluators = await docListAsMap(EVALUATORS_COLLECTION);
+      if(Object.keys(existingEvaluators).length === 0){
+        const oldEvaluators = await sget(K.evaluators, []);
+        if(oldEvaluators.length){
+          await Promise.all(oldEvaluators.map(ev => docSave(EVALUATORS_COLLECTION, ev.id, ev)));
+        }
       }
+      await sset(K.evaluatorsMigrationDone, true);
     }
-    const existingScores = await docListAsMap(SCORES_COLLECTION);
-    if(Object.keys(existingScores).length === 0){
-      const oldScores = await sget(K.scores, {});
-      const keys = Object.keys(oldScores);
-      if(keys.length){
-        await Promise.all(keys.map(k => docSave(SCORES_COLLECTION, k, oldScores[k])));
-      }
-    }
-    await sset(K.migrationDone, true);
   }catch(e){ console.error('migration failed', e); }
 }
 
@@ -1287,21 +1309,25 @@ async function loadAll(){
     // keep the already-fetched Q&A in memory this session (no need to re-fetch immediately)
   }
 
-  S.evaluators = await sget(K.evaluators, []);
+  const evaluatorsMap = await docListAsMap(EVALUATORS_COLLECTION);
+  S.evaluators = Object.entries(evaluatorsMap)
+    .map(([docId, data]) => ({ ...data, id: docId }))
+    .sort((a,b)=> (a.name||'').localeCompare(b.name||''));
   S.scores = await docListAsMap(SCORES_COLLECTION);
   S.resources = await sget(K.resources, []);
 
   // One-time-per-load cleanup: strip any assignment referencing a startup that no longer
   // exists (e.g. deleted before the assignment-cleanup fix shipped), so the assigned count
-  // shown to admins and evaluators is always accurate.
+  // shown to admins and evaluators is always accurate. Only re-saves the specific evaluator
+  // documents that actually changed, never a shared blob.
   const existingStartupIds = new Set(S.startups.map(s=>s.id));
-  let evaluatorsNeedSave = false;
+  const toResave = [];
   S.evaluators.forEach(ev=>{
     const before = ev.assignedStartupIds.length;
     ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>existingStartupIds.has(id));
-    if(ev.assignedStartupIds.length !== before) evaluatorsNeedSave = true;
+    if(ev.assignedStartupIds.length !== before) toResave.push(ev);
   });
-  if(evaluatorsNeedSave) await sset(K.evaluators, S.evaluators);
+  if(toResave.length) await Promise.all(toResave.map(ev => docSave(EVALUATORS_COLLECTION, ev.id, ev)));
 
   if(localStorage.getItem('dealroom_admin_authed') === '1'){
     S.adminAuthed = true;
@@ -2035,13 +2061,13 @@ function attachAdminStartups(){
       S.selectedStartupIds = failedIds; // keep whatever failed selected, so it's obvious what's left
       // Remove the deleted startups from every evaluator's assignment list too, otherwise
       // the assigned count stays inflated with references to startups that no longer exist.
-      let evaluatorsChanged = false;
+      const evaluatorsToResave = [];
       S.evaluators.forEach(ev=>{
         const before = ev.assignedStartupIds.length;
         ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>!succeededIds.includes(id));
-        if(ev.assignedStartupIds.length !== before) evaluatorsChanged = true;
+        if(ev.assignedStartupIds.length !== before) evaluatorsToResave.push(ev);
       });
-      if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
+      if(evaluatorsToResave.length) await Promise.all(evaluatorsToResave.map(ev => docSave(EVALUATORS_COLLECTION, ev.id, ev)));
       render();
       if(failedIds.length){
         const firstError = results.find(r=>!r.ok);
@@ -2188,14 +2214,14 @@ function attachAdminStartups(){
       S.selectedStartupIds = (S.selectedStartupIds||[]).filter(x=>x!==id);
       // Remove this startup from every evaluator's assignment list too, otherwise the
       // assigned count stays inflated with a reference to a startup that no longer exists.
-      let evaluatorsChanged = false;
+      const evaluatorsToResave = [];
       S.evaluators.forEach(ev=>{
         if(ev.assignedStartupIds.includes(id)){
           ev.assignedStartupIds = ev.assignedStartupIds.filter(x=>x!==id);
-          evaluatorsChanged = true;
+          evaluatorsToResave.push(ev);
         }
       });
-      if(evaluatorsChanged) await sset(K.evaluators, S.evaluators);
+      if(evaluatorsToResave.length) await Promise.all(evaluatorsToResave.map(ev => docSave(EVALUATORS_COLLECTION, ev.id, ev)));
       render();
       toast('Deleted');
     };
@@ -2278,8 +2304,9 @@ function attachAdminEvaluators(){
       const name = document.getElementById('newEvalName').value.trim();
       const code = document.getElementById('newEvalCode').value.trim();
       if(!name || !code){ toast('Name and code are both required'); return; }
-      S.evaluators.push({ id: uid('ev'), name, code, assignedStartupIds: [] });
-      await sset(K.evaluators, S.evaluators);
+      const newEval = { id: uid('ev'), name, code, assignedStartupIds: [] };
+      S.evaluators.push(newEval);
+      await docSave(EVALUATORS_COLLECTION, newEval.id, newEval);
       holder.innerHTML='';
       render();
       toast('Evaluator added');
@@ -2288,8 +2315,9 @@ function attachAdminEvaluators(){
   document.querySelectorAll('[data-delete-eval]').forEach(b=>{
     b.onclick = async ()=>{
       if(!confirm('Remove this evaluator?')) return;
-      S.evaluators = S.evaluators.filter(e=>e.id!==b.dataset.deleteEval);
-      await sset(K.evaluators, S.evaluators);
+      const id = b.dataset.deleteEval;
+      S.evaluators = S.evaluators.filter(e=>e.id!==id);
+      await docDelete(EVALUATORS_COLLECTION, id);
       render();
     };
   });
@@ -2325,7 +2353,7 @@ function attachAdminEvaluators(){
           if(row && row.style.display === 'none') return; // respect current search filter
           if(!ev.assignedStartupIds.includes(cb.dataset.su)) ev.assignedStartupIds.push(cb.dataset.su);
         });
-        await sset(K.evaluators, S.evaluators);
+        await docSave(EVALUATORS_COLLECTION, ev.id, ev);
         render();
         toast('Assigned');
       };
@@ -2340,7 +2368,7 @@ function attachAdminEvaluators(){
           visibleIds.add(cb.dataset.su);
         });
         ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>!visibleIds.has(id));
-        await sset(K.evaluators, S.evaluators);
+        await docSave(EVALUATORS_COLLECTION, ev.id, ev);
         render();
         toast('Cleared');
       };
@@ -2350,7 +2378,7 @@ function attachAdminEvaluators(){
         const suId = cb.dataset.su;
         if(cb.checked && !ev.assignedStartupIds.includes(suId)) ev.assignedStartupIds.push(suId);
         if(!cb.checked) ev.assignedStartupIds = ev.assignedStartupIds.filter(id=>id!==suId);
-        await sset(K.evaluators, S.evaluators);
+        await docSave(EVALUATORS_COLLECTION, ev.id, ev);
         render();
       };
     });
