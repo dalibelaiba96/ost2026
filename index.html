@@ -1266,6 +1266,7 @@ let S = {
   resources: [],         // admin-posted reference docs/links shown on the evaluator home page
   selectedStartupIds: [],// checked rows in the admin Startups table, for bulk delete
   adminStartupSearch: '', // live search text for the admin Startups table
+  adminEvaluatorSearch: '', // live search text for the admin Evaluators tab
   currentStartupId: null,
   scoringStep: 0,        // which rubric category the evaluator is currently scoring (index into rubric array; rubric.length = final Go/No-Go+comments step)
   evaluatorHome: true,   // true = show the evaluator landing dashboard first, false = show their assigned list
@@ -2246,10 +2247,16 @@ function renderAdminEvaluators(){
   </div>
   <div id="addEvalForm"></div>
 
+  ${S.evaluators.length ? `
+  <div style="position:relative;margin-bottom:16px;max-width:360px;">
+    <i class="ph ph-magnifying-glass" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);"></i>
+    <input id="evaluatorSearchInput" placeholder="Search evaluators by name..." value="${escAttr(S.adminEvaluatorSearch||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 12px 9px 34px;font-size:13.5px;"/>
+  </div>` : ''}
+
   ${S.evaluators.length === 0 ? `<div class="empty"><i class="ph ph-users-three"></i>No evaluators yet. Add one, then assign startups to them.</div>` : `
   <div class="startup-list">
     ${S.evaluators.map(ev=>`
-      <div class="card" style="max-width:none;padding:18px 20px;">
+      <div class="card" data-search-blob="${escAttr(ev.name.toLowerCase())}" style="max-width:none;padding:18px 20px;">
         <div class="row-between">
           <div>
             <div style="font-weight:600;font-size:14.5px;">${esc(ev.name)}</div>
@@ -2291,6 +2298,24 @@ function renderAssignBox(ev){
     </div>`;
 }
 function attachAdminEvaluators(){
+  const searchInput = document.getElementById('evaluatorSearchInput');
+  if(searchInput){
+    searchInput.oninput = ()=>{
+      S.adminEvaluatorSearch = searchInput.value;
+      const q = searchInput.value.trim().toLowerCase();
+      document.querySelectorAll('[data-search-blob]').forEach(card=>{
+        card.style.display = (!q || card.dataset.searchBlob.includes(q)) ? '' : 'none';
+      });
+    };
+    // Reapply whatever search was active before this re-render (e.g. opening an assign panel)
+    if(S.adminEvaluatorSearch){
+      const q = S.adminEvaluatorSearch.trim().toLowerCase();
+      document.querySelectorAll('[data-search-blob]').forEach(card=>{
+        card.style.display = (!q || card.dataset.searchBlob.includes(q)) ? '' : 'none';
+      });
+    }
+  }
+
   document.getElementById('addEvalBtn').onclick = ()=>{
     const holder = document.getElementById('addEvalForm');
     holder.innerHTML = `
