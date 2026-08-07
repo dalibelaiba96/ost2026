@@ -2449,8 +2449,14 @@ function renderAdminResults(){
   const visibleStartups = S.startups.filter(s=> quadTab==='all' || quadrantKeyOf(s)===quadTab);
   const countFor = (key) => S.startups.filter(s=>quadrantKeyOf(s)===key).length;
   return `
-  <div class="section-title">Results</div>
-  <p class="section-sub">Averaged across all evaluators who've submitted a score. Click a row to see individual scores, Go/No-Go calls, and comments.</p>
+  <div class="row-between" style="margin-bottom:6px;">
+    <div>
+      <div class="section-title">Results</div>
+      <p class="section-sub" style="margin-bottom:0;">Averaged across all evaluators who've submitted a score. Click a row to see individual scores, Go/No-Go calls, and comments.</p>
+    </div>
+    <button class="btn btn-navy" id="downloadResultsBtn"><i class="ph ph-download-simple"></i> Download results (.xlsx)</button>
+  </div>
+  <div style="height:12px;"></div>
   <div class="row" style="gap:6px;margin-bottom:16px;flex-wrap:wrap;">
     <button class="tab-pill ${quadTab==='all'?'active':''}" data-results-quad-filter="all">All (${S.startups.length})</button>
     ${QUADRANTS.map(q=>`<button class="tab-pill ${quadTab===q.key?'active':''}" data-results-quad-filter="${q.key}">${esc(q.label)} (${countFor(q.key)})</button>`).join('')}
@@ -2515,7 +2521,69 @@ function renderAdminResults(){
     </table>
   </div>`}`;
 }
+// Builds a two-sheet Excel export of results: one sheet for Pre-Seed, one for Seed.
+// Category columns are generated from the rubric structure automatically, so if the
+// rubric ever changes, the export adapts without needing manual updates.
+function exportResultsXlsx(){
+  const buildSheetRows = (track) => {
+    const trackStartups = S.startups.filter(s => (s.track||'pre-seed') === track).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    const categories = RUBRICS[track+':tech-enabled']; // structural template — same category labels/max points regardless of type within a track
+
+    return trackStartups.map(s => {
+      const rubric = getRubric(s);
+      const rows = scoresForStartup(s.id);
+      const submittedRows = rows.filter(r=>r.submitted);
+      const totals = rubric ? submittedRows.map(r=>scoreRowTotal(r,rubric)).filter(v=>v!==null) : [];
+      const avgTotal = avgOf(totals);
+      const goCount = submittedRows.filter(r=>r.goNoGo==='go').length;
+      const noGoCount = submittedRows.filter(r=>r.goNoGo==='no-go').length;
+      const noCallCount = submittedRows.length - goCount - noGoCount;
+      const assignedCount = S.evaluators.filter(e=>e.assignedStartupIds.includes(s.id)).length;
+
+      const row = {
+        'Startup': s.name || '',
+        'Type': s.type ? (s.type==='deeptech'?'Deeptech':'Tech-enabled') : 'Not set',
+        'Country': s.country || '',
+        'Sector': s.sector || '',
+        'Website': s.website || '',
+        'Deck link': s.deckOverride || s.decks || '',
+        'Evaluators assigned': assignedCount,
+        'Scores submitted': submittedRows.length
+      };
+      categories.forEach(cat=>{
+        const catVals = rubric ? submittedRows.map(r=>categoryTotal(r,cat)).filter(v=>v!==null) : [];
+        const catAvg = avgOf(catVals);
+        row[`${cat.label.replace(/^\d+\.\s*/,'')} (avg / ${cat.maxPoints})`] = catAvg===null ? '' : Number(catAvg.toFixed(1));
+      });
+      row['Overall avg'] = avgTotal===null ? '' : Number(avgTotal.toFixed(1));
+      row['Overall max'] = rubric ? rubricMaxTotal(rubric) : (categories.reduce((s,c)=>s+c.maxPoints,0));
+      row['Go'] = goCount;
+      row['No-Go'] = noGoCount;
+      row['No call yet'] = noCallCount;
+      return row;
+    });
+  };
+
+  const preSeedRows = buildSheetRows('pre-seed');
+  const seedRows = buildSheetRows('seed');
+
+  if(!preSeedRows.length && !seedRows.length){
+    toast('No startups to export yet');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  if(preSeedRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(preSeedRows), 'Pre-Seed');
+  if(seedRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(seedRows), 'Seed');
+
+  const dateStr = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `OST_Evaluation_Results_${dateStr}.xlsx`);
+  toast('Download started');
+}
+
 function attachAdminResults(){
+  const downloadBtn = document.getElementById('downloadResultsBtn');
+  if(downloadBtn) downloadBtn.onclick = exportResultsXlsx;
   document.querySelectorAll('[data-results-quad-filter]').forEach(b=>{
     b.onclick = ()=>{ S.adminResultsQuadrant = b.dataset.resultsQuadFilter; render(); };
   });
